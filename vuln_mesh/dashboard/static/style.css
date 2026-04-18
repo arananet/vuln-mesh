@@ -414,6 +414,64 @@ header {
 }
 .empty-icon { font-size: 28px; opacity: 0.4; }
 
+/* ── NEW SCAN BUTTON ─────────────────────────────────────── */
+.btn-new-scan {
+  padding: 5px 13px;
+  background: var(--purple);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.btn-new-scan:hover { opacity: 0.85; }
+
+/* ── SCAN MODAL ──────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 14, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay[hidden] { display: none; }
+
+.modal-card {
+  width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-a);
+  border-radius: 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.scan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
 /* ── LOGIN OVERLAY ───────────────────────────────────────── */
 .login-overlay {
   position: fixed;

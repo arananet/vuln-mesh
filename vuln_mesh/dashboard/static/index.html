@@ -24,7 +24,35 @@
   <span id="elapsed">00:00:00</span>
   <span id="target-path">—</span>
   <span class="header-author">by Eduardo Arana</span>
+  <button class="btn-new-scan" onclick="openScanModal()" title="Start a new scan">▶ New Scan</button>
 </header>
+
+<!-- ── SCAN MODAL ─────────────────────────────────────────── -->
+<div id="scan-modal" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title">New Scan</span>
+      <button class="btn-close" onclick="closeScanModal()">✕</button>
+    </div>
+    <form id="scan-form" class="scan-form">
+      <label class="login-label" for="scan-source">Source Path</label>
+      <input
+        id="scan-source"
+        class="login-input"
+        type="text"
+        placeholder="/path/to/c-project"
+        spellcheck="false"
+        required
+      >
+      <div id="scan-error" class="login-error" hidden></div>
+      <button id="scan-btn" type="submit" class="login-btn">Start Analysis</button>
+    </form>
+    <p class="login-disclaimer">
+      Provide a local path to a C/C++ project accessible by the backend server.
+      Only analyze code you own or have explicit written permission to test.
+    </p>
+  </div>
+</div>
 
 <!-- ── STATS ROW ───────────────────────────────────────── -->
 <div class="stats-row">

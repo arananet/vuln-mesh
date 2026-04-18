@@ -1,0 +1,49 @@
+title: "Scan Trigger — Start Analysis from Dashboard"
+slug: "scan-trigger"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Adds a "New Scan" button to the dashboard that lets the user start a
+  vulnerability scan against a local source path without needing CLI access
+  or environment variables. The browser POSTs the source path to a new
+  POST /api/scan endpoint; the backend launches the pipeline as an asyncio
+  background task in the same event loop as the dashboard server; the
+  existing SSE stream delivers all pipeline events to the browser in real
+  time so the dashboard updates live.
+
+acceptance_criteria:
+  - "Given the dashboard header, there is a 'New Scan' button that opens a form"
+  - "Given the form is submitted with a source path, POST /api/scan is called and the pipeline starts"
+  - "Given POST /api/scan succeeds, SCAN_STARTED appears on the SSE stream and the dashboard updates"
+  - "Given POST /api/scan when a scan is already running, then 409 Conflict is returned"
+  - "Given POST /api/scan without a valid token (when auth enabled), then 401 is returned"
+  - "Given POST /api/scan with a non-existent source path, then 400 is returned"
+
+test_plan:
+  - "Unit test: POST /api/scan with valid source returns 200 and scan task is created"
+  - "Unit test: POST /api/scan while a scan is running returns 409"
+  - "Unit test: POST /api/scan without auth token returns 401 when ADMIN_PASS is set"
+  - "Unit test: POST /api/scan with missing source field returns 422"
+
+out_of_scope:
+  - "Scan queue (multiple pending scans)"
+  - "Cancel/stop a running scan"
+  - "Git URL / remote source ingestion (local paths only in v0.1)"
+  - "Config override from the UI (uses server default config)"
+
+implementation_skill: null
+
+technical_notes: |
+  A module-level asyncio.Task reference in server.py tracks whether a scan
+  is active (task is not None and not done). create_app() gains a new
+  optional scan_runner parameter: async (source, config_path) -> None.
+  The POST /api/scan endpoint calls asyncio.create_task(scan_runner(...))
+  and returns immediately — the SSE stream carries all status updates.
+
+linked_issues: []
+linked_prs: []

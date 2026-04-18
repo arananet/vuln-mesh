@@ -23,7 +23,7 @@ tracker = PipelineTracker()
 
 
 def _build_scan_factory():
-    """Return a scan coroutine factory if SCAN_TARGET is configured, else None."""
+    """Return a coroutine factory for auto-scan on boot (SCAN_TARGET env var)."""
     target = os.environ.get("SCAN_TARGET", "")
     if not target:
         return None
@@ -45,4 +45,24 @@ def _build_scan_factory():
     return factory
 
 
-app = create_app(tracker, scan_factory=_build_scan_factory())
+async def _scan_runner(source: str, config_path: str = "config/default.yaml") -> None:
+    """On-demand scan runner called from POST /api/scan."""
+    import yaml
+    from vuln_mesh.cli import _run_scan
+
+    try:
+        with open(config_path) as f:
+            cfg = yaml.safe_load(f)
+    except FileNotFoundError:
+        log.warning("Config not found: %s — using defaults", config_path)
+        cfg = {
+            "ranker": {"top_n": 200, "min_score": 0.4},
+            "agents": {"concurrency": 8, "model_profile": "triage", "verifier_profile": "verifier"},
+            "adapters": {"triage": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
+                         "verifier": {"provider": "anthropic", "model": "claude-sonnet-4-6"}},
+        }
+
+    await _run_scan(cfg, source, None, None, tracker)
+
+
+app = create_app(tracker, scan_factory=_build_scan_factory(), scan_runner=_scan_runner)

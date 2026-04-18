@@ -42,6 +42,11 @@ class _LoginBody(BaseModel):
     password: str = ""
 
 
+class _ScanRequest(BaseModel):
+    source: str
+    config: str = "config/default.yaml"
+
+
 async def sse_stream(
     tracker: PipelineTracker,
     is_disconnected: Callable[[], Coroutine[Any, Any, bool]],
@@ -73,6 +78,7 @@ async def sse_stream(
 def create_app(
     tracker: PipelineTracker,
     scan_factory: Callable[[], Coroutine[Any, Any, None]] | None = None,
+    scan_runner: Callable[[str, str], Coroutine[Any, Any, None]] | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -154,6 +160,27 @@ def create_app(
         if body.username == expected_user and body.password == expected_pass:
             return {"token": _session_token(), "auth_required": True}
         return JSONResponse({"detail": "Invalid credentials"}, status_code=401)
+
+    # ── On-demand scan trigger ─────────────────────────────
+    _active_task: list[asyncio.Task] = []  # list so closure can mutate it
+
+    @app.post("/api/scan")
+    async def trigger_scan(body: _ScanRequest):
+        if scan_runner is None:
+            raise HTTPException(status_code=503, detail="Scan runner not configured")
+        if not body.source or not body.source.strip():
+            raise HTTPException(status_code=400, detail="source path is required")
+        if not Path(body.source).exists():
+            raise HTTPException(status_code=400, detail=f"Path not found: {body.source}")
+        # Reject if a scan task is currently running
+        if _active_task and not _active_task[0].done():
+            raise HTTPException(status_code=409, detail="A scan is already running")
+        task = asyncio.create_task(scan_runner(body.source, body.config))
+        if _active_task:
+            _active_task[0] = task
+        else:
+            _active_task.append(task)
+        return {"status": "started", "source": body.source}
 
     # ── Scan history API ────────────────────────────────────
     @app.get("/api/scans")

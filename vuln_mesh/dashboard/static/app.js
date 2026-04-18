@@ -294,6 +294,50 @@ async function loadHistory() {
   }
 }
 
+// ── Scan modal ─────────────────────────────────────────────
+function openScanModal() {
+  document.getElementById('scan-modal').hidden = false;
+  document.getElementById('scan-source').focus();
+}
+
+function closeScanModal() {
+  document.getElementById('scan-modal').hidden = true;
+  document.getElementById('scan-error').hidden = true;
+  document.getElementById('scan-source').value = '';
+}
+
+document.getElementById('scan-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn    = document.getElementById('scan-btn');
+  const source = document.getElementById('scan-source').value.trim();
+  const errEl  = document.getElementById('scan-error');
+
+  errEl.hidden    = true;
+  btn.disabled    = true;
+  btn.textContent = 'Starting…';
+
+  try {
+    const resp = await fetch(BASE + '/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ source }),
+    });
+    if (resp.ok) {
+      closeScanModal();
+    } else {
+      const { detail } = await resp.json().catch(() => ({ detail: resp.statusText }));
+      errEl.textContent = detail;
+      errEl.hidden = false;
+    }
+  } catch {
+    errEl.textContent = 'Cannot reach backend.';
+    errEl.hidden = false;
+  }
+
+  btn.disabled    = false;
+  btn.textContent = 'Start Analysis';
+});
+
 // ── Login ───────────────────────────────────────────────────
 function showLogin() {
   document.getElementById('login-overlay').hidden = false;
