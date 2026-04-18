@@ -126,19 +126,32 @@
     </div>
     <p class="login-tagline">Vulnerability Discovery Pipeline</p>
     <form id="login-form" class="login-form" autocomplete="off">
-      <label class="login-label" for="login-key">API Key</label>
+      <label class="login-label" for="login-user">Username</label>
       <input
-        id="login-key"
+        id="login-user"
+        class="login-input"
+        type="text"
+        placeholder="admin"
+        autocomplete="username"
+        spellcheck="false"
+        required
+      >
+      <label class="login-label" for="login-pass">Password</label>
+      <input
+        id="login-pass"
         class="login-input"
         type="password"
-        placeholder="Enter your API key…"
+        placeholder="••••••••"
         autocomplete="current-password"
-        spellcheck="false"
         required
       >
       <div id="login-error" class="login-error" hidden></div>
       <button id="login-btn" type="submit" class="login-btn">Connect</button>
     </form>
+    <p class="login-disclaimer">
+      For authorized use only. Only analyze source code you own or have
+      explicit written permission to test. Unauthorized scanning is illegal.
+    </p>
   </div>
 </div>
 

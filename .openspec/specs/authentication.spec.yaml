@@ -17,24 +17,26 @@ description: |
   into any publicly-served file — users prove possession by entering it.
 
 acceptance_criteria:
-  - "Given API_SECRET_KEY is set, when a request hits /api/scans without credentials, then the backend returns 401"
-  - "Given API_SECRET_KEY is set, when Authorization: Bearer <key> is correct, then the request succeeds"
-  - "Given API_SECRET_KEY is set, when ?token=<key> is correct on /events, then the request succeeds (EventSource cannot send headers)"
-  - "Given API_SECRET_KEY is unset, when any request arrives, then all routes are accessible with no credentials"
-  - "Given /api/health, regardless of API_SECRET_KEY, then it always returns 200 (Railway health probe)"
-  - "Given the frontend loads and the backend returns 401 on probe, then a login screen is shown"
-  - "Given the user enters a valid key on the login screen, then the dashboard connects and the key is stored in sessionStorage"
-  - "Given the user enters an invalid key, then an error message is shown and access is denied"
-  - "Given a valid key is in sessionStorage on page load, then the login screen is skipped"
-  - "Given the API key, it is never written to any file served to the browser (no config.js injection)"
+  - "Given ADMIN_PASS is set, when a request hits /api/scans without credentials, then the backend returns 401"
+  - "Given ADMIN_PASS is set, when Authorization: Bearer <token> is correct, then the request succeeds"
+  - "Given ADMIN_PASS is set, when ?token=<token> is correct on /events, then the request succeeds (EventSource cannot send headers)"
+  - "Given ADMIN_PASS is empty, when any request arrives, then all routes are accessible with no credentials"
+  - "Given /api/health and /api/login, regardless of ADMIN_PASS, then they always return 200/accessible (Railway health probe + login flow)"
+  - "Given the frontend loads and the backend returns 401 on probe, then a login screen with username and password fields is shown"
+  - "Given the user submits correct credentials via POST /api/login, then a session token is returned and stored in sessionStorage"
+  - "Given the user submits wrong credentials, then the backend returns 401 and an error message is shown"
+  - "Given a valid token is in sessionStorage on page load, then the login screen is skipped"
+  - "Given the session token, it is derived server-side from credentials and never stored or injected into any public file"
 
 test_plan:
-  - "Unit test: /api/health returns 200 when API_SECRET_KEY is set"
-  - "Unit test: / (index) returns 200 when API_SECRET_KEY is set"
-  - "Unit test: /api/scans returns 401 when API_SECRET_KEY is set and no credentials supplied"
+  - "Unit test: /api/health returns 200 when ADMIN_PASS is set"
+  - "Unit test: / (index) returns 200 when ADMIN_PASS is set"
+  - "Unit test: /api/login is accessible without credentials and returns token on correct user/pass"
+  - "Unit test: /api/login returns 401 on wrong credentials"
+  - "Unit test: /api/scans returns 401 when ADMIN_PASS is set and no token supplied"
   - "Unit test: /api/scans returns 200 when correct Bearer token is supplied"
-  - "Unit test: /api/scans returns 401 when an incorrect Bearer token is supplied"
-  - "Unit test: /api/scans returns 200 when API_SECRET_KEY is unset (open mode)"
+  - "Unit test: /api/scans returns 401 when an incorrect token is supplied"
+  - "Unit test: /api/scans returns 200 when ADMIN_PASS is empty (open mode)"
 
 out_of_scope:
   - "Multi-user accounts or per-user roles"
@@ -46,14 +48,13 @@ out_of_scope:
 implementation_skill: null
 
 technical_notes: |
-  Middleware reads API_SECRET_KEY at request time (not app startup) so it can
-  be changed via environment without a restart in local dev.
-  EventSource cannot send custom headers; /events accepts ?token= query param
-  as an equivalent to Authorization: Bearer.
-  sessionStorage is used intentionally over localStorage so the key is wiped
-  when the browser tab closes — appropriate for a security-sensitive tool.
+  Token = sha256(f"{ADMIN_USER}:{ADMIN_PASS}") — stateless, no DB, no secrets table.
+  Middleware reads ADMIN_PASS at request time so it can be set without restarting.
+  EventSource cannot send custom headers; /events accepts ?token= query param.
+  sessionStorage clears on tab close — appropriate for a security-sensitive tool.
+  ADMIN_PASS="" disables auth entirely (local dev mode).
 
-regression_test: "tests/test_dashboard_app.py — test_api_scans_blocked_without_key, test_api_scans_allowed_with_bearer_token, test_wrong_token_returns_401, test_no_auth_key_means_open_access, test_health_is_public_regardless_of_auth"
+regression_test: "tests/test_dashboard_app.py — test_api_scans_blocked_without_token, test_api_scans_allowed_with_correct_token, test_wrong_token_returns_401, test_empty_admin_pass_means_open_access, test_login_endpoint_is_public, test_login_wrong_credentials_returns_401"
 
 linked_issues: []
 linked_prs: []

@@ -506,6 +506,16 @@ header {
 .login-btn:hover:not(:disabled) { opacity: 0.85; }
 .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.login-disclaimer {
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
 /* ── HISTORY DRAWER ──────────────────────────────────────── */
 .history-drawer {
   position: fixed;

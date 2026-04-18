@@ -310,37 +310,50 @@ function setLoginError(msg) {
   el.hidden = !msg;
 }
 
-async function validateKey(key) {
+async function validateToken(token) {
   try {
-    const headers = key ? { Authorization: 'Bearer ' + key } : {};
-    const resp = await fetch(BASE + '/api/scans', { headers });
+    const resp = await fetch(BASE + '/api/scans', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
     return resp.status !== 401;
   } catch {
-    return true;  // backend unreachable — don't gate on network error
+    return true;
   }
 }
 
 document.getElementById('login-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const btn   = document.getElementById('login-btn');
-  const input = document.getElementById('login-key');
-  const key   = input.value.trim();
+  const btn      = document.getElementById('login-btn');
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
 
   setLoginError('');
   btn.disabled    = true;
   btn.textContent = 'Connecting…';
 
-  if (await validateKey(key)) {
-    API_KEY = key;
-    if (key) sessionStorage.setItem('vm_api_key', key);
-    hideLogin();
-    start();
-  } else {
-    setLoginError('Invalid API key — access denied.');
-    input.select();
-    btn.disabled    = false;
-    btn.textContent = 'Connect';
+  try {
+    const resp = await fetch(BASE + '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (resp.ok) {
+      const { token } = await resp.json();
+      API_KEY = token;
+      sessionStorage.setItem('vm_api_key', token);
+      hideLogin();
+      start();
+    } else {
+      setLoginError('Invalid credentials — access denied.');
+      document.getElementById('login-pass').value = '';
+      document.getElementById('login-pass').focus();
+    }
+  } catch {
+    setLoginError('Cannot reach backend. Check your connection.');
   }
+
+  btn.disabled    = false;
+  btn.textContent = 'Connect';
 });
 
 // ── SSE connection ─────────────────────────────────────────
@@ -380,16 +393,16 @@ function start() {
   try {
     const probe = await fetch(BASE + '/api/scans');
     authRequired = probe.status === 401;
-  } catch { /* backend unreachable — proceed and let SSE handle errors */ }
+  } catch { /* backend unreachable — proceed and let SSE surface the error */ }
 
   if (!authRequired) {
     start();
     return;
   }
 
-  // Auth required — try a saved session key first
+  // Auth required — try a saved session token first
   const saved = sessionStorage.getItem('vm_api_key');
-  if (saved && await validateKey(saved)) {
+  if (saved && await validateToken(saved)) {
     API_KEY = saved;
     start();
   } else {

@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, Callable, Coroutine, Any
 
+from pydantic import BaseModel
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -23,9 +25,21 @@ log = logging.getLogger(__name__)
 
 _STATIC = Path(__file__).parent / "static"
 
-# Paths that never require authentication (health probe + SPA assets)
-_PUBLIC_PREFIXES = ("/api/health", "/static", "/")
-_PUBLIC_EXACT = {"/", "/api/health"}
+# Paths that never require a session token
+_PUBLIC_EXACT = {"/", "/api/health", "/api/login"}
+
+
+def _session_token() -> str:
+    """Derive a bearer token from ADMIN_USER + ADMIN_PASS (stateless, no DB needed)."""
+    import hashlib
+    user = os.environ.get("ADMIN_USER", "admin")
+    password = os.environ.get("ADMIN_PASS", "")
+    return hashlib.sha256(f"{user}:{password}".encode()).hexdigest()
+
+
+class _LoginBody(BaseModel):
+    username: str = ""
+    password: str = ""
 
 
 async def sse_stream(
@@ -87,26 +101,25 @@ def create_app(
         allow_headers=["Authorization", "Content-Type"],
     )
 
-    # ── API key auth ───────────────────────────────────────────
-    # Set API_SECRET_KEY to protect /events and /api/* endpoints.
-    # When unset, all routes are open (local dev / first boot).
-    # EventSource can't send headers, so /events also accepts ?token=<key>.
+    # ── Auth middleware ────────────────────────────────────────
+    # Set ADMIN_PASS to enable auth. When empty, all routes are open
+    # (useful for local dev). EventSource uses ?token= since browsers
+    # cannot send custom headers on SSE connections.
     @app.middleware("http")
     async def _require_auth(request: Request, call_next):
-        secret = os.environ.get("API_SECRET_KEY", "")
-        path = request.url.path
-        if (
-            not secret
-            or path in _PUBLIC_EXACT
-            or path.startswith("/static")
-        ):
+        if not os.environ.get("ADMIN_PASS", ""):
             return await call_next(request)
 
+        path = request.url.path
+        if path in _PUBLIC_EXACT or path.startswith("/static"):
+            return await call_next(request)
+
+        token = _session_token()
         auth_header = request.headers.get("Authorization", "")
         token_header = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
         token_query = request.query_params.get("token", "")
 
-        if token_header == secret or token_query == secret:
+        if token_header == token or token_query == token:
             return await call_next(request)
 
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
@@ -129,6 +142,18 @@ def create_app(
     @app.get("/api/health")
     async def health():
         return {"status": "ok", "version": "0.1.0", "db": get_session_factory() is not None}
+
+    # ── Login ──────────────────────────────────────────────
+    @app.post("/api/login")
+    async def login(body: _LoginBody):
+        expected_user = os.environ.get("ADMIN_USER", "admin")
+        expected_pass = os.environ.get("ADMIN_PASS", "")
+        if not expected_pass:
+            # Auth disabled — return a dummy token so the frontend still works
+            return {"token": _session_token(), "auth_required": False}
+        if body.username == expected_user and body.password == expected_pass:
+            return {"token": _session_token(), "auth_required": True}
+        return JSONResponse({"detail": "Invalid credentials"}, status_code=401)
 
     # ── Scan history API ────────────────────────────────────
     @app.get("/api/scans")

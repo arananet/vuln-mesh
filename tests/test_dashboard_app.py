@@ -94,48 +94,62 @@ async def test_sse_stream_yields_heartbeat_on_timeout():
     assert len(heartbeats) >= 1
 
 
-# ── Auth middleware tests ───────────────────────────────────
+# ── Auth middleware + login tests ──────────────────────────
 
-def test_health_is_public_regardless_of_auth(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    assert client.get("/api/health").status_code == 200
+import hashlib
 
-
-def test_index_is_public_regardless_of_auth(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    assert client.get("/").status_code == 200
+def _token(user="admin", password="testpass"):
+    return hashlib.sha256(f"{user}:{password}".encode()).hexdigest()
 
 
-def test_api_scans_blocked_without_key(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    assert client.get("/api/scans").status_code == 401
+def test_health_is_always_public(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    assert TestClient(_app()).get("/api/health").status_code == 200
 
 
-def test_api_scans_allowed_with_bearer_token(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    resp = client.get("/api/scans", headers={"Authorization": "Bearer supersecret"})
+def test_index_is_always_public(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    assert TestClient(_app()).get("/").status_code == 200
+
+
+def test_login_endpoint_is_public(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    resp = TestClient(_app()).post("/api/login", json={"username": "admin", "password": "testpass"})
     assert resp.status_code == 200
+    assert "token" in resp.json()
 
 
-def test_no_auth_key_means_open_access(monkeypatch):
-    monkeypatch.delenv("API_SECRET_KEY", raising=False)
-    client = TestClient(_app())
-    assert client.get("/api/scans").status_code == 200
-
-
-def test_wrong_token_returns_401(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    resp = client.get("/api/scans", headers={"Authorization": "Bearer wrongkey"})
+def test_login_wrong_credentials_returns_401(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    resp = TestClient(_app()).post("/api/login", json={"username": "admin", "password": "wrong"})
     assert resp.status_code == 401
 
 
-def test_static_files_are_public(monkeypatch):
-    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
-    client = TestClient(_app())
-    # /static/* should never be blocked (served by StaticFiles)
-    assert client.get("/api/health").status_code == 200
+def test_api_scans_blocked_without_token(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    assert TestClient(_app()).get("/api/scans").status_code == 401
+
+
+def test_api_scans_allowed_with_correct_token(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    tok = _token("admin", "testpass")
+    resp = TestClient(_app()).get("/api/scans", headers={"Authorization": f"Bearer {tok}"})
+    assert resp.status_code == 200
+
+
+def test_wrong_token_returns_401(monkeypatch):
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASS", "testpass")
+    resp = TestClient(_app()).get("/api/scans", headers={"Authorization": "Bearer badtoken"})
+    assert resp.status_code == 401
+
+
+def test_empty_admin_pass_means_open_access(monkeypatch):
+    monkeypatch.setenv("ADMIN_PASS", "")
+    assert TestClient(_app()).get("/api/scans").status_code == 200
