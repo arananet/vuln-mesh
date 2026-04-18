@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
-from pathlib import Path
 from typing import Any
 
 import click
@@ -13,10 +11,12 @@ from vuln_mesh.adapters.base import AdapterConfig
 from vuln_mesh.adapters.factory import build_adapter
 from vuln_mesh.agents.mesh import run_mesh
 from vuln_mesh.dashboard.state import EventType, PipelineEvent, PipelineTracker
+from vuln_mesh.db.repository import ScanRepository
+from vuln_mesh.db.session import get_session_factory
 from vuln_mesh.ingestion.loader import ingest
 from vuln_mesh.oracle.runner import OracleStatus, run_oracle
 from vuln_mesh.ranker.scorer import rank
-from vuln_mesh.report.markdown import render_markdown
+from vuln_mesh.report.markdown import finding_hash, render_markdown
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("vuln_mesh.cli")
@@ -36,6 +36,36 @@ def _make_adapter(cfg: dict, profile: str):
         base_url=p.get("base_url", ""),
         api_key=p.get("api_key", ""),
     ))
+
+
+async def _persist_results(src: str, oracle_results: list, stats: dict) -> None:
+    """Write scan run and findings to the database if DATABASE_URL is set."""
+    factory = get_session_factory()
+    if not factory:
+        return
+    async with factory() as session:
+        repo = ScanRepository(session)
+        scan = await repo.create_scan(src)
+        for result in oracle_results:
+            f = result.finding.finding
+            await repo.add_finding(
+                scan_id=scan.id,
+                file_path=f.file_path,
+                line_hint=f.line_hint,
+                bug_class=f.bug_class,
+                description=f.description,
+                exploit_input=f.exploit_input,
+                verifier_rationale=result.finding.verifier_rationale,
+                oracle_output=result.output,
+                finding_hash=finding_hash(f.file_path, f.exploit_input),
+            )
+        await repo.complete_scan(
+            scan.id,
+            files_ingested=stats.get("files_ingested", 0),
+            files_ranked=stats.get("files_ranked", 0),
+            findings_confirmed=len(oracle_results),
+        )
+        log.info("Scan persisted to database (id=%s)", scan.id)
 
 
 async def _run_scan(
@@ -95,6 +125,12 @@ async def _run_scan(
     cvss = report_cfg.get("cvss_estimate", True)
     render_markdown(oracle_results, output_path=output, cvss_estimate=cvss)
 
+    stats = tracker.stats if tracker else {
+        "files_ingested": len(graph.nodes),
+        "files_ranked": len(ranked),
+    }
+    await _persist_results(src, oracle_results, stats)
+
     await _emit(EventType.SCAN_COMPLETE, {
         "confirmed": len(oracle_results),
         "report_path": output or "vuln-mesh-report-*.md",
@@ -135,7 +171,7 @@ def main(
         uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")
     else:
         asyncio.run(_run_scan(cfg, src, _top_n, output, tracker=None))
-        click.echo(f"Report written. Confirmed findings logged above.")
+        click.echo("Scan complete.")
 
 
 if __name__ == "__main__":

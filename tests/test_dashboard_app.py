@@ -92,3 +92,36 @@ async def test_sse_stream_yields_heartbeat_on_timeout():
     chunks = await _collect(tracker, disconnect_after=2, heartbeat_interval=0.01)
     heartbeats = [c for c in chunks if c.startswith(": heartbeat")]
     assert len(heartbeats) >= 1
+
+
+# ── Auth middleware tests ───────────────────────────────────
+
+def test_health_is_public_regardless_of_auth(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    assert client.get("/api/health").status_code == 200
+
+
+def test_index_is_public_regardless_of_auth(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    assert client.get("/").status_code == 200
+
+
+def test_api_scans_blocked_without_key(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    assert client.get("/api/scans").status_code == 401
+
+
+def test_api_scans_allowed_with_bearer_token(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    resp = client.get("/api/scans", headers={"Authorization": "Bearer supersecret"})
+    assert resp.status_code == 200
+
+
+def test_no_auth_key_means_open_access(monkeypatch):
+    monkeypatch.delenv("API_SECRET_KEY", raising=False)
+    client = TestClient(_app())
+    assert client.get("/api/scans").status_code == 200

@@ -103,6 +103,25 @@
   <div class="log-body" id="log-body"></div>
 </div>
 
+<!-- ── HISTORY DRAWER ───────────────────────────────────── -->
+<div id="history-drawer" class="history-drawer">
+  <div class="panel-header">
+    <span>Scan History</span>
+    <button class="btn-close" onclick="toggleHistory()">✕</button>
+  </div>
+  <div class="panel-body" id="history-list">
+    <div class="empty-state">
+      <div class="empty-icon">◎</div>
+      <div>No past scans found</div>
+    </div>
+  </div>
+</div>
+<button class="history-btn" onclick="toggleHistory()" title="Scan history">⏱ History</button>
+
+<!-- config.js is generated at container startup in the frontend service.
+     When served directly from the backend, this file won't exist and
+     window.APP_CONFIG stays undefined — app.js falls back to same-origin. -->
+<script src="/config.js" onerror="void 0"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

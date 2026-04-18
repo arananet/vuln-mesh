@@ -408,3 +408,74 @@ header {
   font-size: 12px;
 }
 .empty-icon { font-size: 28px; opacity: 0.4; }
+
+/* ── HISTORY DRAWER ──────────────────────────────────────── */
+.history-drawer {
+  position: fixed;
+  top: 0;
+  right: -380px;
+  width: 360px;
+  height: 100vh;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  transition: right 0.25s ease;
+}
+.history-drawer.open { right: 0; }
+
+.history-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 199;
+  padding: 7px 14px;
+  background: var(--bg-card);
+  color: var(--text-2);
+  border: 1px solid var(--border-a);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--mono);
+  transition: border-color 0.2s, color 0.2s;
+}
+.history-btn:hover { border-color: var(--purple); color: var(--purple); }
+
+.btn-close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+.btn-close:hover { color: var(--text); background: var(--bg-card-h); }
+
+.scan-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+.scan-item:hover { background: var(--bg-card-h); }
+.scan-item-id {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.scan-item-target {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scan-item-meta {
+  font-size: 10.5px;
+  color: var(--text-2);
+  margin-top: 3px;
+  font-family: var(--mono);
+}

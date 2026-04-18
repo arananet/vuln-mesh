@@ -1,0 +1,22 @@
+# railway.toml — Backend service configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# In Railway, create three services in the same project:
+#
+#   1. backend   → this file (root dir, Dockerfile.backend)
+#   2. frontend  → root dir, Dockerfile.frontend
+#   3. postgres  → Railway PostgreSQL plugin (auto-injects DATABASE_URL)
+#
+# Link the PostgreSQL plugin to the backend service so DATABASE_URL is set.
+# Set BACKEND_URL on the frontend service to the backend's public Railway URL.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build]
+builder          = "DOCKERFILE"
+dockerfilePath   = "Dockerfile.backend"
+
+[deploy]
+startCommand     = "uvicorn vuln_mesh.dashboard.server:app --host 0.0.0.0 --port $PORT --workers 1"
+healthcheckPath  = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType  = "ON_FAILURE"
+restartPolicyMaxRetries = 5

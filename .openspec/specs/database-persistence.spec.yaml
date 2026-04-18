@@ -1,0 +1,49 @@
+title: "Database Persistence — Scan Runs and Findings"
+slug: "database-persistence"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Adds async PostgreSQL persistence via SQLAlchemy so every scan run and its
+  confirmed findings are stored and queryable. Persistence is optional — when
+  DATABASE_URL is absent the pipeline runs without a database and all existing
+  behaviour is unchanged. The DB layer exposes three REST endpoints on the
+  dashboard app: list scans, get scan, list findings for a scan.
+
+acceptance_criteria:
+  - "Given DATABASE_URL in environment, when a scan completes, then a ScanRun row is created with correct target/status/counts"
+  - "Given a confirmed OracleResult, when persisted, then a Finding row exists with file_path, bug_class, finding_hash"
+  - "Given no DATABASE_URL, when the pipeline runs, then it completes without error and no DB code executes"
+  - "Given GET /api/scans, then it returns a JSON list of ScanRun records (empty list if no DB)"
+  - "Given GET /api/scans/{id}/findings, then it returns findings for that scan"
+  - "Given GET /api/health, then it returns {status: ok, db: bool}"
+
+test_plan:
+  - "Unit test: ScanRepository.create_scan() inserts a row with status=running"
+  - "Unit test: ScanRepository.complete_scan() updates status/counts correctly"
+  - "Unit test: ScanRepository.add_finding() inserts Finding row linked to ScanRun"
+  - "Unit test: ScanRepository.list_scans() returns rows ordered by started_at desc"
+  - "Unit test: get_session_factory() returns None when DATABASE_URL is unset"
+  - "Unit test: /api/health returns {status: ok} (no DB needed)"
+  - "Unit test: /api/scans returns [] when no DB is configured"
+
+out_of_scope:
+  - "Alembic migrations (startup create_all used for v0.1)"
+  - "Scan trigger via API (scans still start via CLI/--dashboard)"
+  - "Multi-tenant isolation"
+  - "Full-text search on findings"
+
+implementation_skill: null
+
+technical_notes: |
+  Models use String(36) for PKs (UUID stringified) for SQLite/PostgreSQL compat.
+  DATABASE_URL from Railway: postgres:// or postgresql:// → rewrite to postgresql+asyncpg://
+  session.py module-level singletons; engine created lazily on first access.
+  DB tables created via Base.metadata.create_all() in FastAPI lifespan startup.
+
+linked_issues: []
+linked_prs: []

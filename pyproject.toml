@@ -16,6 +16,8 @@ dependencies = [
     "click>=8.1",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +26,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
     "respx>=0.21",
+    "aiosqlite>=0.20",
 ]
 
 [project.scripts]

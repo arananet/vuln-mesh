@@ -1,5 +1,13 @@
 'use strict';
 
+// ── Config (injected at container startup via config.js) ───
+const BASE    = (window.APP_CONFIG?.backendUrl || '').replace(/\/$/, '');
+const API_KEY = window.APP_CONFIG?.apiKey || '';
+
+function authHeaders() {
+  return API_KEY ? { Authorization: 'Bearer ' + API_KEY } : {};
+}
+
 // ── State ──────────────────────────────────────────────────
 const state = {
   startedAt: null,
@@ -249,9 +257,44 @@ function stopTimer() {
   if (state.timerHandle) clearInterval(state.timerHandle);
 }
 
+// ── History drawer ─────────────────────────────────────────
+function toggleHistory() {
+  const drawer = document.getElementById('history-drawer');
+  const open = drawer.classList.toggle('open');
+  if (open) loadHistory();
+}
+
+async function loadHistory() {
+  const list = document.getElementById('history-list');
+  try {
+    const resp = await fetch(BASE + '/api/scans', { headers: authHeaders() });
+    if (!resp.ok) { list.innerHTML = '<div class="empty-state"><div>Failed to load history</div></div>'; return; }
+    const scans = await resp.json();
+    if (!scans.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">◎</div><div>No past scans found</div></div>';
+      return;
+    }
+    list.innerHTML = '';
+    scans.forEach(scan => {
+      const item = document.createElement('div');
+      item.className = 'scan-item';
+      const started = scan.started_at ? new Date(scan.started_at).toLocaleString() : '—';
+      item.innerHTML = `
+        <div class="scan-item-id">${scan.id}</div>
+        <div class="scan-item-target">${scan.target || '—'}</div>
+        <div class="scan-item-meta">${started} · ${scan.status} · ${scan.findings_confirmed ?? 0} confirmed</div>`;
+      list.appendChild(item);
+    });
+  } catch (e) {
+    list.innerHTML = '<div class="empty-state"><div>Error loading history</div></div>';
+    console.warn('history fetch failed', e);
+  }
+}
+
 // ── SSE connection ─────────────────────────────────────────
 function connect() {
-  const es = new EventSource('/events');
+  const qs = API_KEY ? '?token=' + encodeURIComponent(API_KEY) : '';
+  const es = new EventSource(BASE + '/events' + qs);
   es.onmessage = e => {
     try { onEvent(JSON.parse(e.data)); }
     catch (err) { console.warn('parse error', err, e.data); }

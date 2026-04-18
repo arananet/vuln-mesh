@@ -1,0 +1,47 @@
+title: "Railway Deployment — Backend, Frontend, PostgreSQL"
+slug: "railway-deployment"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Packages vuln-mesh for Railway as three separate services: a Python/FastAPI
+  backend, an nginx static frontend, and a Railway-managed PostgreSQL instance.
+  Backend and frontend are independent Docker images. The frontend injects the
+  backend URL at container startup so the SSE connection and API calls work
+  across origins. CORS is configured on the backend to accept requests from the
+  frontend domain.
+
+acceptance_criteria:
+  - "Given Dockerfile.backend, when built, then the image runs uvicorn on $PORT with gcc/clang available"
+  - "Given Dockerfile.frontend, when built, then nginx serves the static dashboard"
+  - "Given BACKEND_URL env var in the frontend container, when started, then config.js contains the correct URL"
+  - "Given CORS_ORIGINS env var on the backend, then the backend accepts requests from those origins"
+  - "Given DATABASE_URL env var (from Railway PostgreSQL), when backend starts, then tables are created"
+  - "Given railway.toml at repo root, then it describes the backend service build and start command"
+  - "Given .env.example, then it documents all required environment variables"
+
+test_plan:
+  - "Unit test: CORS middleware allows configured origin (tested via TestClient)"
+  - "Build test: docker build Dockerfile.backend succeeds (manual verification)"
+  - "Build test: docker build Dockerfile.frontend succeeds (manual verification)"
+
+out_of_scope:
+  - "Railway CI/CD pipeline definition"
+  - "SSL/TLS termination (handled by Railway)"
+  - "Multi-region deployment"
+  - "Secret management beyond env vars"
+
+implementation_skill: null
+
+technical_notes: |
+  Backend entry: uvicorn vuln_mesh.dashboard.server:app --host 0.0.0.0 --port $PORT
+  Frontend: nginx:alpine + deploy/entrypoint.sh generates /config.js from BACKEND_URL
+  PostgreSQL: Railway plugin injects DATABASE_URL automatically to linked services
+  Railway health check: GET /api/health on backend
+
+linked_issues: []
+linked_prs: []

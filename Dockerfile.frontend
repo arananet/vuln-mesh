@@ -1,0 +1,15 @@
+FROM nginx:1.27-alpine
+
+# Copy static dashboard assets
+COPY vuln_mesh/dashboard/static/ /usr/share/nginx/html/
+
+# nginx site config (no proxy — frontend talks directly to backend via BACKEND_URL)
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Entrypoint injects BACKEND_URL into /config.js at container start
+COPY deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint.sh"]
