@@ -1,0 +1,42 @@
+title: "Model Adapters"
+slug: "model-adapters"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Provides a unified async adapter interface for LLM backends so all agents
+  can call any model provider without knowing which one is active. Ships with
+  Anthropic and Ollama adapters for v0.1. Different adapters can be assigned
+  to different pipeline stages (triage vs exploit) via YAML config.
+
+acceptance_criteria:
+  - "Given a config block, when an adapter is instantiated, then it wraps the correct provider SDK"
+  - "Given messages + system prompt, when complete() is called, then it returns a string response"
+  - "Given an unknown provider string, when an adapter is built, then it raises a ValueError"
+  - "Given an Anthropic adapter, when complete() is called, then it uses the claude-sonnet-4-6 model by default"
+  - "Given an Ollama adapter, when complete() is called, then it POSTs to the configured base_url"
+
+test_plan:
+  - "Unit test: AnthropicAdapter.complete() with mocked httpx — asserts correct message structure sent"
+  - "Unit test: OllamaAdapter.complete() with mocked httpx — asserts base_url used correctly"
+  - "Unit test: build_adapter() raises ValueError on unknown provider"
+  - "Unit test: base AdapterConfig dataclass validates required fields"
+
+out_of_scope:
+  - "OpenAI adapter (v0.2)"
+  - "Streaming responses"
+  - "Retry / backoff logic"
+
+implementation_skill: null
+
+technical_notes: |
+  Interface: async def complete(messages: list[dict], system: str, max_tokens: int) -> str
+  Config driven via AdapterConfig dataclass parsed from YAML.
+  Use httpx.AsyncClient for all HTTP calls to keep deps minimal.
+
+linked_issues: []
+linked_prs: []

@@ -1,0 +1,43 @@
+title: "Report Layer — Markdown Output"
+slug: "report-markdown"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Consumes crash-confirmed OracleResults and writes a structured Markdown
+  report with one section per finding: file path, line hint, bug class,
+  description, exploit input, ASan output excerpt, and a CVSS estimate.
+  Each finding is SHA-256 hashed for responsible disclosure tracking.
+
+acceptance_criteria:
+  - "Given a list of OracleResults, when rendered, then a .md file is written to the output path"
+  - "Given a finding, when rendered, then the output contains file path, bug class, and exploit input"
+  - "Given a finding, when rendered, then a SHA-256 hash of (file_path + exploit_input) appears in the output"
+  - "Given an empty findings list, when rendered, then a report is still written stating no findings"
+  - "Given cvss_estimate=True, when rendered, then each finding includes a CVSS 3.1 base score estimate"
+
+test_plan:
+  - "Unit test: render_markdown() with one OracleResult produces expected section headers"
+  - "Unit test: finding_hash() is deterministic and matches expected SHA-256"
+  - "Unit test: render_markdown() with empty list produces 'No findings' report"
+  - "Unit test: CVSS estimate block present when cvss_estimate=True, absent when False"
+
+out_of_scope:
+  - "SARIF output (v0.2)"
+  - "JSON output (v0.2)"
+  - "Patch suggestion agent (v0.2)"
+  - "HTML rendering"
+
+implementation_skill: null
+
+technical_notes: |
+  CVSS estimate is an LLM-generated heuristic string, not a formal score.
+  Hash input: SHA-256(file_path + ":" + exploit_input).hexdigest()
+  Output file name: vuln-mesh-report-<timestamp>.md
+
+linked_issues: []
+linked_prs: []

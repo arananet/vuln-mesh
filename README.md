@@ -1,160 +1,129 @@
-# {{PROJECT_NAME}}
+# vuln-mesh
 
-{{PROJECT_DESCRIPTION}}
+A model-agnostic vulnerability discovery pipeline using layered LLM agents to find and verify security bugs in C/C++ source code. Inspired by [Anthropic's Project Glasswing](https://www.anthropic.com/glasswing).
 
----
-
-## What is OpenSpec?
-
-OpenSpec is a spec-driven development framework built into this repo. Every feature or bugfix starts with a spec file — no spec, no code. Specs define acceptance criteria, test plans, and the domain skill to use during implementation.
-
-**Two layers of enforcement:**
-
-| Layer | When | What |
-|---|---|---|
-| Git hook (local) | `git commit` | Blocks commits with source changes but no spec |
-| CI — deterministic | Every PR | Validates spec fields, status, and test_plan presence |
-| CI — agentic | Every PR | AI checks if the implementation actually satisfies the spec |
-
----
-
-## How it works
+## Architecture
 
 ```mermaid
-flowchart TD
-    A([New feature or bugfix]) --> B{Spec exists?}
-    B -- No --> C["/openspec-scaffold\nor: gh openspec scaffold"]
-    C --> D[Fill in acceptance_criteria\nand test_plan]
-    D --> E{status = review?}
-    B -- Yes --> E
-    E -- draft --> D
-    E -- review/approved --> F["/openspec-implement\ninvokes domain skill if set"]
-    F --> G[Write tests per test_plan]
-    G --> H([Open PR])
-    H --> I[spec-check.yml\ndeterministic gate]
-    H --> J[spec-ai-review.yml\nagentic alignment check]
-    I --> K{All checks pass?}
-    J --> K
-    K -- No --> F
-    K -- Yes --> L([Merge])
+graph TD
+    A[Target Source\nlocal path] --> B[Ingestion Layer\nvuln_mesh/ingestion/]
+    B --> C[Attack Surface Ranker\nvuln_mesh/ranker/]
+    C --> D[Agent Mesh\nvuln_mesh/agents/]
+    D --> D1[Hunt Agent\nhunt.py]
+    D1 --> D2[Adversarial Verifier\nverifier.py]
+    D2 --> E[Oracle Layer\nvuln_mesh/oracle/]
+    E --> E1[ASan Crash Oracle\ncrash.py]
+    E1 --> F[Report Layer\nvuln_mesh/report/]
+    F --> G[Markdown Report]
 ```
 
----
+### Pipeline Stages
 
-## Quick start
+| Stage | Module | What it does |
+|---|---|---|
+| **Ingestion** | `vuln_mesh/ingestion/` | Walks local path, detects C/C++ files, builds dependency graph |
+| **Ranker** | `vuln_mesh/ranker/` | Scores files by unsafe call density + size + entry-point depth |
+| **Agent Mesh** | `vuln_mesh/agents/` | Hunt agent finds bugs; adversarial verifier tries to disprove them |
+| **Oracle** | `vuln_mesh/oracle/` | Compiles with ASan, runs exploit input, confirms real crashes |
+| **Report** | `vuln_mesh/report/` | Writes Markdown report with CVSS estimates and finding hashes |
+| **Adapters** | `vuln_mesh/adapters/` | Unified `async complete()` interface — Anthropic, Ollama, extensible |
 
-### 1. Configure this repo
+What makes this different from a scanner: each hunt agent reasons about a single file in full context — attack surface, call graph position, data flow — not just pattern matching. The oracle is ground truth, not LLM opinion. Findings that can't be crash-reproduced are filtered out automatically.
 
-Open it in [Claude Code](https://claude.ai/code) — it detects the unconfigured state and interviews you automatically.
+## Requirements
 
-Or configure manually:
+- Python 3.11+
+- `clang` or `gcc` with AddressSanitizer support (for oracle verification)
+- Access to at least one model backend (Anthropic API or Ollama)
+
+## Installation
 
 ```bash
-# Edit the five required fields
-vi .openspec/config.yaml
-
-# Install git hooks
-bash setup.sh
+pip install -e ".[dev]"
 ```
 
-### 2. Set your personal defaults (optional)
+Or with Docker:
 
-Fill in `.openspec/defaults.yaml` once — onboarding will skip questions you've already answered:
+```bash
+docker build -t vuln-mesh .
+docker run --rm vuln-mesh --help
+```
+
+## Usage
+
+```bash
+# Basic scan against a local directory
+vuln-mesh --source ./path/to/target --output report.md
+
+# With custom config
+vuln-mesh --config config/default.yaml --source ./ffmpeg-src --top-n 50
+```
+
+## Configuration
+
+Edit `config/default.yaml`:
 
 ```yaml
-owner: "your-github-org"
-team: "your-team"
-test_command: "npm test"
-default_implementation_skill: "frontend-pro"  # or backend-pro, devops-pro, etc.
+target:
+  source: ./target
+
+ranker:
+  top_n: 200        # null = all files
+  min_score: 0.4    # drop files below this score
+
+agents:
+  concurrency: 32
+  model_profile: triage    # adapter for hunt agents
+  verifier_profile: verifier
+
+adapters:
+  triage:
+    provider: ollama
+    model: qwen2.5-coder:32b
+    base_url: http://localhost:11434
+  verifier:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key: ""    # or set ANTHROPIC_API_KEY
 ```
 
-### 3. Create your first spec
+You can assign different model backends to different pipeline stages. The adapter interface is a single `async complete(messages, system, max_tokens) -> str` — adding a new provider means implementing one method.
+
+## Running Tests
 
 ```bash
-gh openspec scaffold "my first feature"
-# or in Claude Code:
-/openspec-scaffold my first feature
+pytest
 ```
 
-### 4. Implement with the right domain skill
+Oracle tests require a C compiler (`clang` or `gcc`) with ASan support and are automatically skipped if none is available.
+
+## Example: Scan FFmpeg
 
 ```bash
-# In Claude Code — reads the spec, invokes implementation_skill if set
-/openspec-implement my-first-feature
+bash examples/scan_ffmpeg.sh /tmp/ffmpeg-src
 ```
 
-### 5. Validate before pushing
+## OpenSpec
 
-```bash
-gh openspec check           # validate all specs
-gh openspec check --strict  # treat warnings as errors
-gh openspec check --pr 42   # check a specific PR
-```
+Specs for all implemented features live in `.openspec/specs/`. Each module has a corresponding spec file defining acceptance criteria and test plan.
 
----
+## v0.1 Scope
 
-## Claude Code skills
-
-Three project skills are available in any Claude Code session:
-
-| Skill | What it does |
+| Feature | Status |
 |---|---|
-| `/openspec-scaffold [feature]` | Guided spec creation — reads defaults, scaffolds file, validates required fields |
-| `/openspec-implement [slug]` | Reads spec, checks status, invokes domain skill, implements + writes tests |
-| `/openspec-check` | Validates spec coverage for current staged changes |
+| Local path ingestion, C/C++ | ✅ |
+| Heuristic ranker (unsafe calls + size + depth) | ✅ |
+| Hunt agent + adversarial verifier | ✅ |
+| ASan crash oracle | ✅ |
+| Markdown report with CVSS estimates | ✅ |
+| Anthropic + Ollama adapters | ✅ |
+| SARIF output | v0.2 |
+| UBSan oracle | v0.2 |
+| Variant hunter | v0.2 |
+| Git URL / tarball ingestion | v0.2 |
 
 ---
 
-## Project structure
-
-```
-.openspec/
-├── config.yaml          # Project configuration and enforcement settings
-├── defaults.yaml        # Personal/team defaults (fill in once)
-├── onboarding.yaml      # Questions Claude Code asks during first-time setup
-├── specs/               # Active spec files (one per feature/bugfix)
-│   └── example-feature.spec.yaml
-└── templates/
-    ├── feature.spec.yaml
-    └── bugfix.spec.yaml
-
-.github/
-├── workflows/
-│   ├── spec-check.yml       # Deterministic CI gate
-│   └── spec-ai-review.yml   # Agentic semantic review
-├── agents/
-│   └── spec-review.md       # AI agent goal file
-├── AGENTS.md                # Instructions for AI agents
-└── copilot-instructions.md  # GitHub Copilot instructions
-
-.claude/
-├── commands/
-│   ├── openspec-scaffold.md
-│   ├── openspec-implement.md
-│   └── openspec-check.md
-├── hooks/
-│   └── require-spec-on-commit.sh
-└── settings.json
-```
-
----
-
-## Spec file format
-
-See `.openspec/specs/example-feature.spec.yaml` for a fully filled-in reference.
-
-Required fields: `title`, `description`, `acceptance_criteria`, `test_plan`, `status`
-
-Status lifecycle: `draft` → `review` → `approved`
-
-> Code can only be written when status is `review` or `approved`.
-
----
-
-**Developer:** Eduardo Arana
-
-**License:** [MIT](LICENSE)
-
----
+**Developer:** Eduardo Arana — **License:** [MIT](LICENSE)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H51MPWG)

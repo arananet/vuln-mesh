@@ -1,0 +1,46 @@
+title: "Agent Mesh — Hunt + Adversarial Verifier"
+slug: "agent-mesh"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Dispatches one hunt agent per ranked file. Each agent receives the full file
+  content, its 2-hop call graph neighbourhood, and the ranker score rationale,
+  then produces a list of candidate findings. A second adversarial verifier
+  agent attempts to disprove each finding. Only findings that survive both
+  passes are forwarded to the oracle. Agents run concurrently via asyncio with
+  a configurable worker cap.
+
+acceptance_criteria:
+  - "Given a ranked FileNode, when the hunt agent runs, then it returns a list of Finding objects (may be empty)"
+  - "Given a Finding, when the verifier agent runs, then it returns verified=True or verified=False with rationale"
+  - "Given concurrency=32, when N>32 files are queued, then at most 32 coroutines run simultaneously"
+  - "Given an adapter that raises an exception, when an agent runs, then the error is caught and the file is skipped with a warning"
+  - "Given a Finding with verified=True, then it is passed to the oracle; verified=False findings are discarded"
+
+test_plan:
+  - "Unit test: HuntAgent.run() with a mocked adapter returns list[Finding]"
+  - "Unit test: VerifierAgent.run() with a mocked adapter returns VerifiedFinding"
+  - "Unit test: run_mesh() respects concurrency cap using asyncio.Semaphore"
+  - "Unit test: adapter exception during hunt is caught, file skipped, mesh continues"
+  - "Integration test: run_mesh() on 3 fixture files with a mock adapter returns only verified findings"
+
+out_of_scope:
+  - "Variant hunter (v0.2)"
+  - "Streaming agent output"
+  - "Per-file model selection beyond profile mapping"
+
+implementation_skill: null
+
+technical_notes: |
+  Finding: file_path, line_hint, bug_class, description, exploit_input, confidence
+  VerifiedFinding: finding + verified: bool + verifier_rationale: str
+  System prompts are module-level constants in hunt.py and verifier.py.
+  asyncio.Semaphore(concurrency) wraps each agent dispatch.
+
+linked_issues: []
+linked_prs: []

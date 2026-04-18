@@ -1,0 +1,44 @@
+title: "Attack Surface Ranker"
+slug: "attack-surface-ranker"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Scores every FileNode on a composite heuristic and returns a priority queue
+  driving agent dispatch. For v0.1 the metric is: unsafe function call density
+  + normalized file size + call depth from entry point. The ranker is the cost
+  control knob — top_n and min_score config values cap how many files agents
+  examine.
+
+acceptance_criteria:
+  - "Given a FileGraph, when ranked, then every node receives a float score in [0, 1]"
+  - "Given top_n=10, when ranked, then at most 10 FileNodes are returned"
+  - "Given min_score=0.5, when ranked, then all returned nodes have score >= 0.5"
+  - "Given a file with many unsafe calls (strcpy, gets, sprintf), when scored, then it ranks higher than a safe file"
+  - "Given an empty graph, when ranked, then an empty list is returned"
+
+test_plan:
+  - "Unit test: rank() returns list sorted descending by score"
+  - "Unit test: unsafe-heavy fixture file scores higher than empty-body fixture"
+  - "Unit test: top_n cap is respected when graph has more files than top_n"
+  - "Unit test: min_score filter drops low-scoring files"
+  - "Unit test: score values are all in [0, 1] range"
+
+out_of_scope:
+  - "NVD CVE proximity scoring (v0.2)"
+  - "Dynamic call graph analysis"
+  - "Memory management pattern analysis beyond unsafe function names"
+
+implementation_skill: null
+
+technical_notes: |
+  UNSAFE_FUNCS = {strcpy, strcat, sprintf, gets, scanf, memcpy, strncpy, ...}
+  Depth from entry point computed via BFS on FileGraph edges.
+  Score = weighted sum, normalised to [0,1] with min-max across all nodes.
+
+linked_issues: []
+linked_prs: []

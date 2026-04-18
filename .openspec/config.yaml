@@ -12,11 +12,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 project:
-  name: "{{PROJECT_NAME}}"
-  owner: "{{GITHUB_OWNER}}"
-  team: "{{TEAM_NAME}}"
-  domain: "{{PROJECT_DOMAIN}}"
-  description: "{{PROJECT_DESCRIPTION}}"
+  name: "vuln-mesh"
+  owner: "arananet"
+  team: "security-research"
+  domain: "security"
+  description: "A model-agnostic vulnerability discovery pipeline using layered LLM agents to find and verify security bugs in source code, inspired by Anthropic's Project Glasswing"
 
 spec:
   required_fields:
@@ -36,7 +36,7 @@ spec:
 
 testing:
   require_tests: true
-  test_command: "{{TEST_COMMAND}}"
+  test_command: "pytest"
   coverage_threshold: null
   fail_on_missing_tests: true
 

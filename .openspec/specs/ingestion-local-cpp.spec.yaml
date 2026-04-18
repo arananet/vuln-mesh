@@ -1,0 +1,44 @@
+title: "Ingestion Layer — Local Path C/C++"
+slug: "ingestion-local-cpp"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Walks a local directory, detects C/C++ source files, and produces a
+  normalized FileNode graph with language tags, dependency edges (via #include
+  parsing), and entry-point annotation (files that define main()). This graph
+  is the sole input to the ranker — agents never touch the raw filesystem.
+
+acceptance_criteria:
+  - "Given a local path, when ingested, then every .c/.cpp/.h/.hpp file is discovered"
+  - "Given a source file with #include directives, when parsed, then include edges appear in the graph"
+  - "Given a file containing 'int main(', when annotated, then is_entry_point=True on that FileNode"
+  - "Given a non-existent path, when ingested, then IngestionError is raised"
+  - "Given a directory with no C/C++ files, when ingested, then an empty graph is returned without error"
+
+test_plan:
+  - "Unit test: ingest() on tests/fixtures/simple/ returns expected FileNode list"
+  - "Unit test: _parse_includes() extracts correct header names from sample C source"
+  - "Unit test: _detect_entry_point() returns True only for files containing 'int main('"
+  - "Unit test: ingest() raises IngestionError on missing path"
+  - "Integration test: ingest() on a multi-file fixture produces correct dependency edges"
+
+out_of_scope:
+  - "Git URL or tarball ingestion (v0.2)"
+  - "Languages other than C/C++ (v0.2)"
+  - "SBOM input"
+  - "Call graph construction (that belongs to ranker)"
+
+implementation_skill: null
+
+technical_notes: |
+  FileNode: path, language, content, includes, is_entry_point, size_bytes
+  FileGraph: nodes: list[FileNode], edges: list[tuple[str,str]]
+  Pure stdlib — no tree-sitter for v0.1; regex-based include parsing is sufficient.
+
+linked_issues: []
+linked_prs: []

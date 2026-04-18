@@ -1,0 +1,41 @@
+target:
+  source: ./target           # local path to scan
+  language: auto             # auto-detected; c/cpp for v0.1
+
+ranker:
+  top_n: 200                 # null = rank all files
+  min_score: 0.4
+
+agents:
+  concurrency: 32
+  model_profile: triage      # adapter profile for hunt agents
+  verifier_profile: verifier # adapter profile for adversarial verifier
+
+oracle:
+  asan: true
+  ubsan: false               # v0.2
+  adversarial_verify: true
+  variant_hunt: false        # v0.2
+  timeout: 10
+
+report:
+  formats: [markdown]        # sarif, json in v0.2
+  patch_suggestions: false   # v0.2
+  cvss_estimate: true
+
+adapters:
+  triage:
+    provider: ollama
+    model: qwen2.5-coder:32b
+    base_url: http://localhost:11434
+    api_key: ""
+
+  verifier:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key: ""              # set ANTHROPIC_API_KEY env var or fill here
+
+  exploit:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key: ""

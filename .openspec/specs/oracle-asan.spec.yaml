@@ -1,0 +1,44 @@
+title: "Oracle Layer — ASan Crash Verification"
+slug: "oracle-asan"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Provides ground-truth verification for agent findings by compiling the
+  target file with AddressSanitizer, feeding the suggested exploit input, and
+  checking for crash/abort. Only crash-confirmed findings are promoted to the
+  report layer. This eliminates false positives that survive the adversarial
+  verifier.
+
+acceptance_criteria:
+  - "Given a VerifiedFinding with exploit_input, when the oracle runs, then it compiles the file with -fsanitize=address"
+  - "Given a compile failure, when the oracle runs, then OracleResult.status=compile_error and the finding is not promoted"
+  - "Given an exploit input that causes a crash, when run, then OracleResult.status=crashed and finding is promoted"
+  - "Given an exploit input that does not crash, when run, then OracleResult.status=clean and finding is discarded"
+  - "Given a timeout (default 10s), when the process exceeds it, then OracleResult.status=timeout"
+
+test_plan:
+  - "Unit test: compile_with_asan() returns (binary_path, None) on success fixture"
+  - "Unit test: compile_with_asan() returns (None, stderr) on broken C fixture"
+  - "Unit test: run_oracle() on tests/fixtures/oracle/crash.c returns status=crashed"
+  - "Unit test: run_oracle() on tests/fixtures/oracle/safe.c returns status=clean"
+  - "Unit test: run_oracle() respects timeout and returns status=timeout"
+
+out_of_scope:
+  - "UBSan integration (v0.2)"
+  - "Valgrind fallback"
+  - "Cross-compilation / non-Linux hosts"
+
+implementation_skill: null
+
+technical_notes: |
+  Uses subprocess to invoke gcc/clang. Compiler auto-detected (clang preferred).
+  Temp directory per finding — cleaned up after each oracle run.
+  OracleResult: status (crashed|clean|compile_error|timeout), output, binary_path
+
+linked_issues: []
+linked_prs: []
