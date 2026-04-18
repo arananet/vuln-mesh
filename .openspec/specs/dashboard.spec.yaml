@@ -30,9 +30,7 @@ test_plan:
   - "Unit test: disconnected client is unsubscribed from tracker"
 
 out_of_scope:
-  - "Authentication on the dashboard"
   - "WebSocket (SSE is sufficient for one-directional push)"
-  - "Historical scan storage / multi-scan comparison"
   - "Mobile layout"
 
 implementation_skill: null

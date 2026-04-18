@@ -1,0 +1,59 @@
+title: "Dashboard Authentication — Login Screen and API Key Middleware"
+slug: "authentication"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Protects the vuln-mesh dashboard so only authorized users can access live
+  scan events and historical findings. The backend enforces an API key on all
+  /events and /api/* routes; /api/health and static files remain public.
+  The frontend shows a login screen when the backend requires authentication,
+  validates the entered key against the backend, and stores the accepted key
+  in sessionStorage (cleared on tab close). The API key is never injected
+  into any publicly-served file — users prove possession by entering it.
+
+acceptance_criteria:
+  - "Given API_SECRET_KEY is set, when a request hits /api/scans without credentials, then the backend returns 401"
+  - "Given API_SECRET_KEY is set, when Authorization: Bearer <key> is correct, then the request succeeds"
+  - "Given API_SECRET_KEY is set, when ?token=<key> is correct on /events, then the request succeeds (EventSource cannot send headers)"
+  - "Given API_SECRET_KEY is unset, when any request arrives, then all routes are accessible with no credentials"
+  - "Given /api/health, regardless of API_SECRET_KEY, then it always returns 200 (Railway health probe)"
+  - "Given the frontend loads and the backend returns 401 on probe, then a login screen is shown"
+  - "Given the user enters a valid key on the login screen, then the dashboard connects and the key is stored in sessionStorage"
+  - "Given the user enters an invalid key, then an error message is shown and access is denied"
+  - "Given a valid key is in sessionStorage on page load, then the login screen is skipped"
+  - "Given the API key, it is never written to any file served to the browser (no config.js injection)"
+
+test_plan:
+  - "Unit test: /api/health returns 200 when API_SECRET_KEY is set"
+  - "Unit test: / (index) returns 200 when API_SECRET_KEY is set"
+  - "Unit test: /api/scans returns 401 when API_SECRET_KEY is set and no credentials supplied"
+  - "Unit test: /api/scans returns 200 when correct Bearer token is supplied"
+  - "Unit test: /api/scans returns 401 when an incorrect Bearer token is supplied"
+  - "Unit test: /api/scans returns 200 when API_SECRET_KEY is unset (open mode)"
+
+out_of_scope:
+  - "Multi-user accounts or per-user roles"
+  - "OAuth / SSO integration"
+  - "Rate limiting on login attempts"
+  - "HTTPS enforcement (handled by Railway / reverse proxy)"
+  - "Refresh tokens or JWT — sessionStorage key is sufficient for a single-operator tool"
+
+implementation_skill: null
+
+technical_notes: |
+  Middleware reads API_SECRET_KEY at request time (not app startup) so it can
+  be changed via environment without a restart in local dev.
+  EventSource cannot send custom headers; /events accepts ?token= query param
+  as an equivalent to Authorization: Bearer.
+  sessionStorage is used intentionally over localStorage so the key is wiped
+  when the browser tab closes — appropriate for a security-sensitive tool.
+
+regression_test: "tests/test_dashboard_app.py — test_api_scans_blocked_without_key, test_api_scans_allowed_with_bearer_token, test_wrong_token_returns_401, test_no_auth_key_means_open_access, test_health_is_public_regardless_of_auth"
+
+linked_issues: []
+linked_prs: []
