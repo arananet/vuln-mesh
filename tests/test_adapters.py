@@ -30,18 +30,31 @@ def test_build_adapter_ollama():
 
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_anthropic_adapter_complete():
+async def test_anthropic_adapter_complete(mocker):
     cfg = AdapterConfig(provider="anthropic", model="claude-sonnet-4-6", api_key="test-key")
     adapter = AnthropicAdapter(cfg)
 
-    respx.post("https://api.anthropic.com/v1/messages").mock(
-        return_value=httpx.Response(200, json={
-            "content": [{"type": "text", "text": "hello"}]
-        })
-    )
+    # Mock the SDK client instead of the HTTP layer
+    mock_response = mocker.MagicMock()
+    mock_response.content = [mocker.MagicMock(text="hello")]
+    adapter._client.messages.create = mocker.AsyncMock(return_value=mock_response)
+
     result = await adapter.complete([{"role": "user", "content": "hi"}], "system", 100)
     assert result == "hello"
+
+    # Verify prompt caching was requested
+    call_kwargs = adapter._client.messages.create.call_args.kwargs
+    system_block = call_kwargs["system"][0]
+    assert system_block["cache_control"] == {"type": "ephemeral"}
+
+
+@pytest.mark.asyncio
+async def test_anthropic_adapter_env_key(mocker):
+    """Empty api_key passes None to SDK so it reads ANTHROPIC_API_KEY from env."""
+    mocker.patch("vuln_mesh.adapters.anthropic.AsyncAnthropic")
+    AnthropicAdapter(AdapterConfig(provider="anthropic", model="m", api_key=""))
+    from vuln_mesh.adapters.anthropic import AsyncAnthropic
+    AsyncAnthropic.assert_called_once_with(api_key=None)
 
 
 @pytest.mark.asyncio

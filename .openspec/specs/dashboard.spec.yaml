@@ -1,0 +1,47 @@
+title: "Real-Time Execution Dashboard"
+slug: "dashboard"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  A FastAPI web dashboard that visualises the vuln-mesh pipeline in real time.
+  Subscribes to PipelineTracker events via Server-Sent Events (SSE) and renders
+  live stats, active file queue, confirmed findings, and a scrolling event log.
+  Started optionally with --dashboard on the CLI; the scan runs as a background
+  task inside the same asyncio event loop as the dashboard server.
+
+acceptance_criteria:
+  - "Given --dashboard flag, when vuln-mesh runs, then a FastAPI server starts on the configured port"
+  - "Given a connected browser, when the SSE /events endpoint is hit, then it streams JSON events"
+  - "Given a SCAN_STARTED event, then the dashboard status badge changes to SCANNING"
+  - "Given a FILE_STARTED event, then the file appears in the active queue panel"
+  - "Given an ORACLE_RESULT crashed event, then the finding appears in the confirmed findings panel"
+  - "Given SCAN_COMPLETE, then the status changes to COMPLETE and the elapsed timer stops"
+  - "Given --no-dashboard (default), when vuln-mesh runs, then no web server is started"
+
+test_plan:
+  - "Unit test: create_app() returns a FastAPI instance with /events and / routes"
+  - "Unit test: SSE /events endpoint yields initial state event on connect"
+  - "Unit test: events emitted to tracker appear in SSE stream within one iteration"
+  - "Unit test: disconnected client is unsubscribed from tracker"
+
+out_of_scope:
+  - "Authentication on the dashboard"
+  - "WebSocket (SSE is sufficient for one-directional push)"
+  - "Historical scan storage / multi-scan comparison"
+  - "Mobile layout"
+
+implementation_skill: null
+
+technical_notes: |
+  Tech: FastAPI + uvicorn + StreamingResponse (SSE without sse-starlette dependency).
+  Scan coroutine runs as asyncio.create_task() inside FastAPI lifespan.
+  Frontend: pure HTML + CSS + vanilla JS EventSource. No build step.
+  Design: dark theme, Inter + JetBrains Mono, cybersecurity aesthetic.
+
+linked_issues: []
+linked_prs: []

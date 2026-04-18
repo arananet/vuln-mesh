@@ -1,0 +1,40 @@
+title: "Anthropic SDK Adapter with Prompt Caching"
+slug: "sdk-anthropic-adapter"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Replaces the raw httpx Anthropic adapter with the official anthropic Python SDK.
+  Adds prompt caching on the system prompt for all agent calls, reducing cost and
+  latency on repeated scans of similar codebases. The public BaseAdapter interface
+  is unchanged — the migration is internal to AnthropicAdapter.
+
+acceptance_criteria:
+  - "Given an AnthropicAdapter, when complete() is called, then it uses anthropic.AsyncAnthropic (not raw httpx)"
+  - "Given a system prompt, when the request is built, then it includes cache_control ephemeral on the system block"
+  - "Given no api_key in config, when the adapter is created, then it reads ANTHROPIC_API_KEY from the environment"
+  - "Given any provider other than anthropic, when build_adapter() is called, then raw httpx adapters are unchanged"
+
+test_plan:
+  - "Unit test: AnthropicAdapter.complete() with mocked AsyncAnthropic client returns expected string"
+  - "Unit test: request sent to SDK includes cache_control ephemeral on system block"
+  - "Unit test: adapter falls back to env var when api_key is empty string"
+
+out_of_scope:
+  - "Streaming responses"
+  - "Prompt caching on message turns (only system prompt for v0.1)"
+  - "Token usage tracking"
+
+implementation_skill: null
+
+technical_notes: |
+  Use anthropic.AsyncAnthropic(api_key=config.api_key or None).
+  System must be a list[dict] with cache_control to enable caching.
+  Pass betas=["prompt-caching-2024-07-31"] or use the default SDK header.
+
+linked_issues: []
+linked_prs: []

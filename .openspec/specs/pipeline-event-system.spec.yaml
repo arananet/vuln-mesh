@@ -1,0 +1,45 @@
+title: "Pipeline Event System"
+slug: "pipeline-event-system"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+
+description: |
+  Adds an optional PipelineTracker event bus that all pipeline stages can emit
+  structured events to. Consumers (e.g. the dashboard SSE endpoint) subscribe
+  to a per-consumer asyncio.Queue. When no tracker is provided, the pipeline
+  runs unchanged with zero overhead. Stats (active agents, finding counts, etc.)
+  are maintained incrementally on the tracker.
+
+acceptance_criteria:
+  - "Given a PipelineTracker, when emit() is called, then all subscriber queues receive the event"
+  - "Given a slow subscriber, when its queue is full, then the event is dropped without blocking the pipeline"
+  - "Given run_mesh() with a tracker, then FILE_STARTED is emitted when a file's processing begins"
+  - "Given run_mesh() with a tracker, then FINDING is emitted per raw finding from the hunt agent"
+  - "Given run_mesh() with a tracker, then VERIFIED is emitted for confirmed findings, DISCARDED for rejected ones"
+  - "Given tracker=None, then run_mesh() runs without any event overhead"
+
+test_plan:
+  - "Unit test: PipelineTracker.emit() delivers event to all subscribers"
+  - "Unit test: full queue does not block emit() — event is silently dropped"
+  - "Unit test: PipelineTracker stats update correctly for each event type"
+  - "Integration test: run_mesh() with a mock tracker emits FILE_STARTED + FINDING + VERIFIED in order"
+
+out_of_scope:
+  - "Persistent event storage / replay"
+  - "Event filtering per subscriber"
+  - "Cross-process event delivery"
+
+implementation_skill: null
+
+technical_notes: |
+  PipelineEvent: type: EventType, data: dict, timestamp: float
+  EventType enum: SCAN_STARTED, INGESTION_COMPLETE, RANKING_COMPLETE,
+    FILE_STARTED, FINDING, VERIFIED, DISCARDED, ORACLE_RESULT, SCAN_COMPLETE, ERROR
+  PipelineTracker.subscribe() returns asyncio.Queue; unsubscribe() removes it.
+
+linked_issues: []
+linked_prs: []

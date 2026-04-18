@@ -1,33 +1,34 @@
 from __future__ import annotations
 
-import httpx
+from anthropic import AsyncAnthropic
 
 from .base import AdapterConfig, BaseAdapter
 
-_API_URL = "https://api.anthropic.com/v1/messages"
-_ANTHROPIC_VERSION = "2023-06-01"
-
 
 class AnthropicAdapter(BaseAdapter):
+    def __init__(self, config: AdapterConfig) -> None:
+        super().__init__(config)
+        # api_key=None → SDK reads ANTHROPIC_API_KEY from env
+        self._client = AsyncAnthropic(api_key=config.api_key or None)
+
     async def complete(
         self,
         messages: list[dict],
         system: str,
         max_tokens: int | None = None,
     ) -> str:
-        payload = {
-            "model": self.config.model,
-            "max_tokens": max_tokens or self.config.max_tokens,
-            "system": system,
-            "messages": messages,
-        }
-        headers = {
-            "x-api-key": self.config.api_key,
-            "anthropic-version": _ANTHROPIC_VERSION,
-            "content-type": "application/json",
-        }
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(_API_URL, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-        return data["content"][0]["text"]
+        # Cache the system prompt — it's identical across all calls in a scan run
+        response = await self._client.messages.create(
+            model=self.config.model,
+            max_tokens=max_tokens or self.config.max_tokens,
+            system=[
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=messages,
+            extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+        )
+        return response.content[0].text
