@@ -304,12 +304,14 @@ function closeScanModal() {
   document.getElementById('scan-modal').hidden = true;
   document.getElementById('scan-error').hidden = true;
   document.getElementById('scan-source').value = '';
+  document.getElementById('scan-output').value = '';
 }
 
 document.getElementById('scan-form').addEventListener('submit', async e => {
   e.preventDefault();
   const btn    = document.getElementById('scan-btn');
   const source = document.getElementById('scan-source').value.trim();
+  const output = document.getElementById('scan-output').value.trim();
   const errEl  = document.getElementById('scan-error');
 
   errEl.hidden    = true;
@@ -320,7 +322,7 @@ document.getElementById('scan-form').addEventListener('submit', async e => {
     const resp = await fetch(BASE + '/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({ source, ...(output && { output }) }),
     });
     if (resp.ok) {
       closeScanModal();

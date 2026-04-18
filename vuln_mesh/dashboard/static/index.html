@@ -44,6 +44,14 @@
         spellcheck="false"
         required
       >
+      <label class="login-label" for="scan-output">Report Destination <span class="label-optional">(optional)</span></label>
+      <input
+        id="scan-output"
+        class="login-input"
+        type="text"
+        placeholder="/path/to/report.md  (auto-named if empty)"
+        spellcheck="false"
+      >
       <div id="scan-error" class="login-error" hidden></div>
       <button id="scan-btn" type="submit" class="login-btn">Start Analysis</button>
     </form>

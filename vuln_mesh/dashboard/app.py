@@ -44,6 +44,7 @@ class _LoginBody(BaseModel):
 
 class _ScanRequest(BaseModel):
     source: str
+    output: str = ""          # report destination; empty = auto-named
     config: str = "config/default.yaml"
 
 
@@ -175,12 +176,12 @@ def create_app(
         # Reject if a scan task is currently running
         if _active_task and not _active_task[0].done():
             raise HTTPException(status_code=409, detail="A scan is already running")
-        task = asyncio.create_task(scan_runner(body.source, body.config))
+        task = asyncio.create_task(scan_runner(body.source, body.config, body.output or None))
         if _active_task:
             _active_task[0] = task
         else:
             _active_task.append(task)
-        return {"status": "started", "source": body.source}
+        return {"status": "started", "source": body.source, "output": body.output or "(auto)"}
 
     # ── Scan history API ────────────────────────────────────
     @app.get("/api/scans")

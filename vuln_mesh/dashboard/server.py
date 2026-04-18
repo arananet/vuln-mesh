@@ -45,7 +45,11 @@ def _build_scan_factory():
     return factory
 
 
-async def _scan_runner(source: str, config_path: str = "config/default.yaml") -> None:
+async def _scan_runner(
+    source: str,
+    config_path: str = "config/default.yaml",
+    output: str | None = None,
+) -> None:
     """On-demand scan runner called from POST /api/scan."""
     import yaml
     from vuln_mesh.cli import _run_scan
@@ -62,7 +66,7 @@ async def _scan_runner(source: str, config_path: str = "config/default.yaml") ->
                          "verifier": {"provider": "anthropic", "model": "claude-sonnet-4-6"}},
         }
 
-    await _run_scan(cfg, source, None, None, tracker)
+    await _run_scan(cfg, source, None, output, tracker)
 
 
 app = create_app(tracker, scan_factory=_build_scan_factory(), scan_runner=_scan_runner)
