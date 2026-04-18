@@ -6,7 +6,6 @@ set -e
 cat > /usr/share/nginx/html/config.js <<CONFIG
 window.APP_CONFIG = {
   backendUrl: "${BACKEND_URL:-}",
-  apiKey:     "${API_SECRET_KEY:-}",
   version:    "0.1.0"
 };
 CONFIG

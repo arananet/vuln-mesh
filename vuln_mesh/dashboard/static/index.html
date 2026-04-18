@@ -116,6 +116,32 @@
     </div>
   </div>
 </div>
+<!-- ── LOGIN OVERLAY ────────────────────────────────────────── -->
+<div id="login-overlay" class="login-overlay" hidden>
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-name">vuln-mesh</span>
+      <span class="logo-ver">v0.1</span>
+    </div>
+    <p class="login-tagline">Vulnerability Discovery Pipeline</p>
+    <form id="login-form" class="login-form" autocomplete="off">
+      <label class="login-label" for="login-key">API Key</label>
+      <input
+        id="login-key"
+        class="login-input"
+        type="password"
+        placeholder="Enter your API key…"
+        autocomplete="current-password"
+        spellcheck="false"
+        required
+      >
+      <div id="login-error" class="login-error" hidden></div>
+      <button id="login-btn" type="submit" class="login-btn">Connect</button>
+    </form>
+  </div>
+</div>
+
 <button class="history-btn" onclick="toggleHistory()" title="Scan history">⏱ History</button>
 
 <!-- config.js is generated at container startup in the frontend service.

@@ -1,8 +1,11 @@
 'use strict';
 
-// ── Config (injected at container startup via config.js) ───
-const BASE    = (window.APP_CONFIG?.backendUrl || '').replace(/\/$/, '');
-const API_KEY = window.APP_CONFIG?.apiKey || '';
+// ── Config ─────────────────────────────────────────────────
+const BASE = (window.APP_CONFIG?.backendUrl || '').replace(/\/$/, '');
+
+// API key is never hard-coded or injected — it lives only in sessionStorage
+// so it is cleared when the browser tab closes.
+let API_KEY = '';
 
 function authHeaders() {
   return API_KEY ? { Authorization: 'Bearer ' + API_KEY } : {};
@@ -291,6 +294,55 @@ async function loadHistory() {
   }
 }
 
+// ── Login ───────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('login-overlay').hidden = false;
+  document.getElementById('login-key').focus();
+}
+
+function hideLogin() {
+  document.getElementById('login-overlay').hidden = true;
+}
+
+function setLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.hidden = !msg;
+}
+
+async function validateKey(key) {
+  try {
+    const headers = key ? { Authorization: 'Bearer ' + key } : {};
+    const resp = await fetch(BASE + '/api/scans', { headers });
+    return resp.status !== 401;
+  } catch {
+    return true;  // backend unreachable — don't gate on network error
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn   = document.getElementById('login-btn');
+  const input = document.getElementById('login-key');
+  const key   = input.value.trim();
+
+  setLoginError('');
+  btn.disabled    = true;
+  btn.textContent = 'Connecting…';
+
+  if (await validateKey(key)) {
+    API_KEY = key;
+    if (key) sessionStorage.setItem('vm_api_key', key);
+    hideLogin();
+    start();
+  } else {
+    setLoginError('Invalid API key — access denied.');
+    input.select();
+    btn.disabled    = false;
+    btn.textContent = 'Connect';
+  }
+});
+
 // ── SSE connection ─────────────────────────────────────────
 function connect() {
   const qs = API_KEY ? '?token=' + encodeURIComponent(API_KEY) : '';
@@ -306,9 +358,12 @@ function connect() {
   };
 }
 
+function start() {
+  connect();
+}
+
 // ── Init ───────────────────────────────────────────────────
-(function init() {
-  // Empty states
+(async function init() {
   els.fileList.innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">◈</div>
@@ -320,5 +375,25 @@ function connect() {
       <div>No confirmed findings yet</div>
     </div>`;
 
-  connect();
+  // Probe whether the backend requires authentication
+  let authRequired = false;
+  try {
+    const probe = await fetch(BASE + '/api/scans');
+    authRequired = probe.status === 401;
+  } catch { /* backend unreachable — proceed and let SSE handle errors */ }
+
+  if (!authRequired) {
+    start();
+    return;
+  }
+
+  // Auth required — try a saved session key first
+  const saved = sessionStorage.getItem('vm_api_key');
+  if (saved && await validateKey(saved)) {
+    API_KEY = saved;
+    start();
+  } else {
+    sessionStorage.removeItem('vm_api_key');
+    showLogin();
+  }
 })();

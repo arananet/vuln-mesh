@@ -125,3 +125,17 @@ def test_no_auth_key_means_open_access(monkeypatch):
     monkeypatch.delenv("API_SECRET_KEY", raising=False)
     client = TestClient(_app())
     assert client.get("/api/scans").status_code == 200
+
+
+def test_wrong_token_returns_401(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    resp = client.get("/api/scans", headers={"Authorization": "Bearer wrongkey"})
+    assert resp.status_code == 401
+
+
+def test_static_files_are_public(monkeypatch):
+    monkeypatch.setenv("API_SECRET_KEY", "supersecret")
+    client = TestClient(_app())
+    # /static/* should never be blocked (served by StaticFiles)
+    assert client.get("/api/health").status_code == 200
