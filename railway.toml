@@ -1,17 +1,19 @@
 # railway.toml — Backend service
 # ─────────────────────────────────────────────────────────────────────────────
-# Create THREE services in the same Railway project:
+# The backend serves BOTH the REST API (/api/*) AND the dashboard UI (/).
+# You do NOT need a separate frontend service to get a working dashboard.
 #
-#   1. backend   → this repo, Dockerfile.backend  (or Railpack via start.sh)
-#   2. frontend  → this repo, Dockerfile.frontend
-#   3. postgres  → Railway PostgreSQL plugin (auto-injects DATABASE_URL)
+# Minimal Railway setup (one service):
+#   1. New project → Add Service → GitHub Repo → this repo
+#   2. Railway reads this file → builds Dockerfile.backend automatically
+#   3. Add PostgreSQL plugin → link to this service (injects DATABASE_URL)
+#   4. Set environment variables (see .env.example or README)
+#   5. Deploy — visit the public URL, login screen appears
 #
-# In the Railway dashboard for each service:
-#   Settings → Build → Dockerfile Path:
-#     backend  → Dockerfile.backend
-#     frontend → Dockerfile.frontend
-#
-# See README.md → Deployment for full variable reference.
+# Optional two-service setup (backend API + nginx frontend):
+#   Create a second service pointing to services/frontend/railway.toml
+#   Set BACKEND_URL on the frontend service to the backend's public URL
+#   Set CORS_ORIGINS on the backend service to the frontend's public URL
 # ─────────────────────────────────────────────────────────────────────────────
 
 [build]
@@ -19,8 +21,8 @@ builder          = "DOCKERFILE"
 dockerfilePath   = "Dockerfile.backend"
 
 [deploy]
-startCommand       = "bash start.sh"
-healthcheckPath    = "/api/health"
-healthcheckTimeout = 300
-restartPolicyType  = "ON_FAILURE"
+startCommand         = "bash start.sh"
+healthcheckPath      = "/api/health"
+healthcheckTimeout   = 300
+restartPolicyType    = "ON_FAILURE"
 restartPolicyMaxRetries = 5

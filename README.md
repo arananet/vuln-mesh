@@ -33,8 +33,6 @@ graph TD
 | **Adapters** | `vuln_mesh/adapters/` | Unified `async complete()` interface — Anthropic, Ollama, extensible |
 | **Dashboard** | `vuln_mesh/dashboard/` | Real-time web UI over SSE; scan history stored in PostgreSQL |
 
-What makes this different from a scanner: each hunt agent reasons about a single file in full context — attack surface, call graph position, data flow — not just pattern matching. The oracle is ground truth, not LLM opinion. Findings that can't be crash-reproduced are filtered out automatically.
-
 ## Requirements
 
 - Python 3.11+
@@ -53,11 +51,11 @@ pip install -e ".[dev]"
 # Scan a local directory
 vuln-mesh --source ./path/to/target --output report.md
 
-# With custom config and dashboard
-vuln-mesh --config config/default.yaml --source ./target --top-n 50 --dashboard
+# With dashboard
+vuln-mesh --config config/default.yaml --source ./target --dashboard
 
-# Dashboard-only server (no auto-scan, runs scans via env var on boot)
-SCAN_TARGET=./target uvicorn vuln_mesh.dashboard.server:app --port 8000
+# Dashboard-only server (no auto-scan on boot)
+uvicorn vuln_mesh.dashboard.server:app --port 8000
 ```
 
 ## Configuration
@@ -65,12 +63,9 @@ SCAN_TARGET=./target uvicorn vuln_mesh.dashboard.server:app --port 8000
 Edit `config/default.yaml`:
 
 ```yaml
-target:
-  source: ./target
-
 ranker:
-  top_n: 200        # null = all files
-  min_score: 0.4    # drop files below this score
+  top_n: 200
+  min_score: 0.4
 
 agents:
   concurrency: 32
@@ -88,60 +83,74 @@ adapters:
     api_key: ""    # or set ANTHROPIC_API_KEY
 ```
 
-You can assign different model backends to different pipeline stages. Adding a new provider means implementing one `async complete(messages, system, max_tokens) -> str` method.
-
 ## Dashboard
 
-The real-time web dashboard visualises pipeline execution as it runs: live file queue, active agent count, confirmed findings, and a scrolling event log.
-
-To run locally:
+The real-time web dashboard shows live file queue, active agent count, confirmed findings, and an event log. To run locally:
 
 ```bash
 ADMIN_USER=admin ADMIN_PASS=changeme \
 uvicorn vuln_mesh.dashboard.server:app --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000` — a login screen will appear. Leave `ADMIN_PASS` empty to run without authentication (local dev).
+Open `http://localhost:8000` — a login screen will appear. Leave `ADMIN_PASS` empty to skip authentication in local dev.
 
-## Deployment (Railway)
+---
 
-Create **three services** in the same Railway project:
+## Railway Deployment
 
-| Service | Build | Notes |
+> The **backend serves both the API and the dashboard UI**. You only need one service to get a working deployment.
+
+### Option A — Single service (recommended)
+
+```
+Railway project
+  └── backend service  ← Dockerfile.backend (API + dashboard UI)
+  └── PostgreSQL plugin
+```
+
+**Steps:**
+1. New project → **Add Service → GitHub Repo** → this repo
+2. Railway reads `railway.toml` → builds `Dockerfile.backend` automatically
+3. Add **PostgreSQL** plugin → link it to the backend service
+4. Set environment variables on the backend service:
+
+| Variable | Example | Notes |
 |---|---|---|
-| **backend** | `Dockerfile.backend` | Main API + SSE server |
-| **frontend** | `Dockerfile.frontend` | nginx static file server |
-| **postgres** | Railway PostgreSQL plugin | Auto-injects `DATABASE_URL` |
+| `ADMIN_USER` | `admin` | Dashboard login username |
+| `ADMIN_PASS` | `edu123` | Dashboard login password |
+| `ANTHROPIC_API_KEY` | `sk-ant-...` | Required if using Anthropic models |
+| `DATABASE_URL` | *(auto-injected)* | Set by the PostgreSQL plugin |
+| `CORS_ORIGINS` | `*` | Keep as `*` for single-service setup |
 
-### Backend environment variables
+5. Deploy → visit the public URL → login screen appears
 
-| Variable | Required | Description |
+---
+
+### Option B — Two services (backend API + nginx frontend)
+
+```
+Railway project
+  └── backend service   ← Dockerfile.backend (API only)
+  └── frontend service  ← services/frontend/Dockerfile (nginx + static UI)
+  └── PostgreSQL plugin
+```
+
+**When to use:** if you want a CDN-cacheable frontend separate from the API.
+
+**Steps:**
+1. Create the **backend service** (same as Option A, but also set `CORS_ORIGINS` to the frontend's public URL)
+2. Create a **second service** → same GitHub repo → in Railway UI set:
+   - **Settings → Build → Dockerfile Path**: `services/frontend/Dockerfile`
+3. On the **frontend service**, set:
+
+| Variable | Example | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | if using Anthropic | Model API key |
-| `DATABASE_URL` | yes (auto-injected) | PostgreSQL connection string |
-| `ADMIN_USER` | yes | Login username (e.g. `admin`) |
-| `ADMIN_PASS` | yes | Login password (e.g. `edu123`) |
-| `CORS_ORIGINS` | yes | Frontend public URL from Railway |
-| `SCAN_TARGET` | no | Auto-start scan on boot |
-| `PORT` | auto | Injected by Railway |
+| `BACKEND_URL` | `https://vuln-mesh-backend.up.railway.app` | Backend's public Railway URL |
 
-### Frontend environment variables
+4. Set `CORS_ORIGINS` on the backend to the frontend's public URL
+5. Deploy both → visit the frontend URL → login screen appears
 
-| Variable | Required | Description |
-|---|---|---|
-| `BACKEND_URL` | yes | Backend public URL from Railway |
-| `PORT` | auto | Injected by Railway |
-
-### Step-by-step
-
-1. Fork / connect this repo to Railway
-2. Create a new project → **Add Service → GitHub Repo** (repeat for backend and frontend)
-3. For each service: **Settings → Build → Dockerfile Path**
-   - backend → `Dockerfile.backend`
-   - frontend → `Dockerfile.frontend`
-4. Add the **PostgreSQL plugin** and link it to the backend service
-5. Set the environment variables above on each service
-6. Deploy — Railway health check hits `GET /api/health` on the backend
+---
 
 ## Running Tests
 
@@ -149,11 +158,11 @@ Create **three services** in the same Railway project:
 pytest
 ```
 
-Oracle tests require a C compiler with ASan support and are skipped automatically if none is found. DB tests use SQLite in-memory (no PostgreSQL needed).
+Oracle tests require a C compiler with ASan support and are skipped automatically if none is found. DB tests use SQLite in-memory — no PostgreSQL needed.
 
 ## OpenSpec
 
-Specs for all implemented features live in `.openspec/specs/`. Each module has a corresponding spec file with acceptance criteria, test plan, and technical notes.
+All implemented features have specs in `.openspec/specs/`. Each spec has acceptance criteria, test plan, and implementation notes.
 
 ## v0.1 Scope
 
@@ -168,7 +177,8 @@ Specs for all implemented features live in `.openspec/specs/`. Each module has a
 | Real-time web dashboard (SSE) | ✅ |
 | PostgreSQL scan history | ✅ |
 | Username + password authentication | ✅ |
-| Railway deployment (backend + frontend + DB) | ✅ |
+| Railway deployment (single + two-service) | ✅ |
+| Mobile-responsive dashboard | ✅ |
 | SARIF output | v0.2 |
 | UBSan oracle | v0.2 |
 | Variant hunter | v0.2 |

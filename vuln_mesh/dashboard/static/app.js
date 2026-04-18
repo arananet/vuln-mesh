@@ -388,12 +388,17 @@ function start() {
       <div>No confirmed findings yet</div>
     </div>`;
 
-  // Probe whether the backend requires authentication
-  let authRequired = false;
+  // Probe the backend to determine auth state:
+  //   200  → auth disabled (open mode) — connect directly
+  //   401  → auth required — show login
+  //   anything else (404, 502, network error) → backend not reachable or
+  //           frontend served without backend (nginx-only deploy) — show login
+  //           so the user gets clear feedback instead of a silent blank state
+  let authRequired = true;
   try {
     const probe = await fetch(BASE + '/api/scans');
-    authRequired = probe.status === 401;
-  } catch { /* backend unreachable — proceed and let SSE surface the error */ }
+    if (probe.status === 200) authRequired = false;
+  } catch { /* network error → leave authRequired = true */ }
 
   if (!authRequired) {
     start();

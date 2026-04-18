@@ -1,0 +1,18 @@
+# railway.toml — Frontend service
+# ─────────────────────────────────────────────────────────────────────────────
+# In Railway: create this service, set root directory to / (repo root),
+# and Dockerfile path to services/frontend/Dockerfile.
+#
+# Required environment variable on this service:
+#   BACKEND_URL — public Railway URL of the backend service
+#               e.g. https://vuln-mesh-backend.up.railway.app
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build]
+builder        = "DOCKERFILE"
+dockerfilePath = "services/frontend/Dockerfile"
+
+[deploy]
+healthcheckPath    = "/"
+healthcheckTimeout = 60
+restartPolicyType  = "ON_FAILURE"
