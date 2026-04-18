@@ -1,17 +1,17 @@
 # railway.toml — Backend service
 # ─────────────────────────────────────────────────────────────────────────────
-# Railway deployment — create THREE services in the same project:
+# Create THREE services in the same Railway project:
 #
-#   1. backend   → this repo, Dockerfile.backend  (or Railpack auto-detect)
+#   1. backend   → this repo, Dockerfile.backend  (or Railpack via start.sh)
 #   2. frontend  → this repo, Dockerfile.frontend
 #   3. postgres  → Railway PostgreSQL plugin (auto-injects DATABASE_URL)
 #
-# For each service in the Railway dashboard:
-#   Settings → Source → Branch: set to the branch you want to deploy
-#   Settings → Build  → Dockerfile Path: Dockerfile.backend or Dockerfile.frontend
+# In the Railway dashboard for each service:
+#   Settings → Build → Dockerfile Path:
+#     backend  → Dockerfile.backend
+#     frontend → Dockerfile.frontend
 #
-# If you prefer Railpack over Docker for the backend, leave the build section
-# blank — Railway will find start.sh automatically.
+# See README.md → Deployment for full variable reference.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [build]
