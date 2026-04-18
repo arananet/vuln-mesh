@@ -116,6 +116,11 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.header-author {
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
 
 /* ── STATS ROW ───────────────────────────────────────────── */
 .stats-row {
@@ -585,4 +590,43 @@ header {
   color: var(--text-2);
   margin-top: 3px;
   font-family: var(--mono);
+}
+
+/* ── MOBILE ──────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  html, body { height: auto; overflow: auto; }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  /* Header: hide author + target on small screens */
+  .header-author, #target-path { display: none; }
+
+  /* Stats: 3 across on first row, 2 on second */
+  .stats-row { grid-template-columns: repeat(3, 1fr); min-height: 60px; }
+
+  /* Pipeline: scroll horizontally instead of wrapping */
+  .pipeline-bar { overflow-x: auto; flex-wrap: nowrap; gap: 0; }
+
+  /* Main: stack panels vertically */
+  .main-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+  .panel { min-height: 240px; }
+  .panel-body { max-height: 240px; }
+
+  /* Log panel: fixed height */
+  .log-panel { height: 180px; flex-shrink: 0; }
+
+  /* History drawer: full width on mobile */
+  .history-drawer { width: 100%; right: -100%; }
+  .history-drawer.open { right: 0; }
+
+  /* Login card: full width */
+  .login-card { width: 90vw; padding: 28px 20px; }
 }
