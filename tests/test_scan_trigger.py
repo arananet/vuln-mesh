@@ -24,7 +24,7 @@ def test_scan_trigger_returns_503_when_no_runner():
 def test_scan_trigger_returns_400_for_missing_source(tmp_path, monkeypatch):
     monkeypatch.delenv("ADMIN_PASS", raising=False)
 
-    async def fake_runner(src, cfg, out=None): pass
+    async def fake_runner(src, cfg, out=None, token=None): pass
 
     client = TestClient(_app_with_runner(runner=fake_runner))
     resp = client.post("/api/scan", json={"source": ""})
@@ -34,7 +34,7 @@ def test_scan_trigger_returns_400_for_missing_source(tmp_path, monkeypatch):
 def test_scan_trigger_returns_400_for_nonexistent_path(monkeypatch):
     monkeypatch.delenv("ADMIN_PASS", raising=False)
 
-    async def fake_runner(src, cfg, out=None): pass
+    async def fake_runner(src, cfg, out=None, token=None): pass
 
     client = TestClient(_app_with_runner(runner=fake_runner))
     resp = client.post("/api/scan", json={"source": "/nonexistent/path/xyz"})
@@ -44,7 +44,7 @@ def test_scan_trigger_returns_400_for_nonexistent_path(monkeypatch):
 def test_scan_trigger_returns_200_for_valid_path(tmp_path, monkeypatch):
     monkeypatch.delenv("ADMIN_PASS", raising=False)
 
-    async def fake_runner(src, cfg, out=None):
+    async def fake_runner(src, cfg, out=None, token=None):
         await asyncio.sleep(10)  # stays "running" for the test
 
     client = TestClient(_app_with_runner(runner=fake_runner))
@@ -57,7 +57,7 @@ def test_scan_trigger_returns_401_without_token(tmp_path, monkeypatch):
     monkeypatch.setenv("ADMIN_USER", "admin")
     monkeypatch.setenv("ADMIN_PASS", "testpass")
 
-    async def fake_runner(src, cfg, out=None): pass
+    async def fake_runner(src, cfg, out=None, token=None): pass
 
     client = TestClient(_app_with_runner(runner=fake_runner))
     resp = client.post("/api/scan", json={"source": str(tmp_path)})
@@ -67,7 +67,7 @@ def test_scan_trigger_returns_401_without_token(tmp_path, monkeypatch):
 def test_scan_trigger_returns_409_when_scan_already_running(tmp_path, monkeypatch):
     monkeypatch.delenv("ADMIN_PASS", raising=False)
 
-    async def fake_runner(src, cfg, out=None):
+    async def fake_runner(src, cfg, out=None, token=None):
         await asyncio.sleep(10)  # stays running during both requests
 
     # Use context manager so both requests share the same event loop,

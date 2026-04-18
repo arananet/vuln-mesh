@@ -46,6 +46,7 @@ class _ScanRequest(BaseModel):
     source: str
     output: str = ""          # report destination; empty = auto-named
     config: str = "config/default.yaml"
+    github_token: str = ""
 
 
 async def sse_stream(
@@ -167,16 +168,17 @@ def create_app(
 
     @app.post("/api/scan")
     async def trigger_scan(body: _ScanRequest):
+        from vuln_mesh.ingestion.git_clone import is_git_url
         if scan_runner is None:
             raise HTTPException(status_code=503, detail="Scan runner not configured")
         if not body.source or not body.source.strip():
             raise HTTPException(status_code=400, detail="source path is required")
-        if not Path(body.source).exists():
+        if not is_git_url(body.source) and not Path(body.source).exists():
             raise HTTPException(status_code=400, detail=f"Path not found: {body.source}")
         # Reject if a scan task is currently running
         if _active_task and not _active_task[0].done():
             raise HTTPException(status_code=409, detail="A scan is already running")
-        task = asyncio.create_task(scan_runner(body.source, body.config, body.output or None))
+        task = asyncio.create_task(scan_runner(body.source, body.config, body.output or None, body.github_token or None))
         if _active_task:
             _active_task[0] = task
         else:

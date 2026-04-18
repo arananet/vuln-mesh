@@ -305,6 +305,7 @@ function closeScanModal() {
   document.getElementById('scan-error').hidden = true;
   document.getElementById('scan-source').value = '';
   document.getElementById('scan-output').value = '';
+  document.getElementById('scan-token').value = '';
 }
 
 document.getElementById('scan-form').addEventListener('submit', async e => {
@@ -312,6 +313,7 @@ document.getElementById('scan-form').addEventListener('submit', async e => {
   const btn    = document.getElementById('scan-btn');
   const source = document.getElementById('scan-source').value.trim();
   const output = document.getElementById('scan-output').value.trim();
+  const token  = document.getElementById('scan-token').value.trim();
   const errEl  = document.getElementById('scan-error');
 
   errEl.hidden    = true;
@@ -322,7 +324,7 @@ document.getElementById('scan-form').addEventListener('submit', async e => {
     const resp = await fetch(BASE + '/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ source, ...(output && { output }) }),
+      body: JSON.stringify({ source, ...(output && { output }), ...(token && { github_token: token }) }),
     });
     if (resp.ok) {
       closeScanModal();
@@ -338,6 +340,11 @@ document.getElementById('scan-form').addEventListener('submit', async e => {
 
   btn.disabled    = false;
   btn.textContent = 'Start Analysis';
+});
+
+document.getElementById('scan-source').addEventListener('input', e => {
+  const isUrl = /^https?:\/\/|^github\.com\//.test(e.target.value.trim());
+  document.getElementById('token-field').hidden = !isUrl;
 });
 
 // ── Login ───────────────────────────────────────────────────

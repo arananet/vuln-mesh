@@ -52,6 +52,17 @@
         placeholder="/path/to/report.md  (auto-named if empty)"
         spellcheck="false"
       >
+      <div id="token-field" class="token-field" hidden>
+        <label class="login-label" for="scan-token">GitHub Token <span class="label-optional">(private repos)</span></label>
+        <input
+          id="scan-token"
+          class="login-input"
+          type="password"
+          placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
       <div id="scan-error" class="login-error" hidden></div>
       <button id="scan-btn" type="submit" class="login-btn">Start Analysis</button>
     </form>

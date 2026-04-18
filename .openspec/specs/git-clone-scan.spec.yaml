@@ -1,0 +1,39 @@
+title: "GitHub Repository Scan — Clone and Analyze"
+slug: "git-clone-scan"
+type: feature
+status: review
+author: "arananet"
+created_at: "2026-04-18"
+updated_at: "2026-04-18"
+description: |
+  Allows users to scan a GitHub (or any git) repository by pasting its URL
+  into the New Scan modal. The backend clones the repo shallowly into a
+  temporary directory, runs the full pipeline, then deletes the temp dir.
+  An optional GitHub token supports private repositories.
+acceptance_criteria:
+  - "Given a GitHub HTTPS URL as source, the backend detects it, clones it shallowly (--depth 1), and scans the cloned directory"
+  - "Given a GitHub token in the request, it is injected into the clone URL and never logged or returned to the client"
+  - "Given a valid public repo URL with no token, the clone succeeds"
+  - "Given an invalid URL or clone failure, the backend emits an ERROR event and returns a 400 response"
+  - "Given clone succeeds, the temp directory is always deleted after the scan (success or failure)"
+  - "Given the modal source field contains a URL, a GitHub Token input appears; for local paths it stays hidden"
+test_plan:
+  - "Unit test: is_git_url() returns True for https/http/git@ URLs, False for local paths"
+  - "Unit test: _inject_token() correctly rewrites HTTPS URL with token"
+  - "Unit test: _inject_token() does not modify non-HTTPS URLs"
+  - "Unit test: clone_repo() raises RuntimeError on non-zero git exit code"
+  - "Unit test: clone_repo() scrubs token from error message"
+  - "Integration test: POST /api/scan with a URL source returns 200 and triggers clone+scan"
+out_of_scope:
+  - "SSH git URLs"
+  - "GitLab / Bitbucket (HTTPS clone works without special handling)"
+  - "Branch/tag selection (--depth 1 HEAD only)"
+  - "Persistent clone cache"
+implementation_skill: null
+technical_notes: |
+  git clone runs in a thread pool executor (run_in_executor) so it doesn't
+  block the asyncio event loop. Token is injected as https://TOKEN@github.com/...
+  Temp dir created with tempfile.mkdtemp; always cleaned up in a finally block.
+  The dashboard log shows "Cloning <url>..." before the pipeline starts.
+linked_issues: []
+linked_prs: []

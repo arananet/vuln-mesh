@@ -49,10 +49,14 @@ async def _scan_runner(
     source: str,
     config_path: str = "config/default.yaml",
     output: str | None = None,
+    github_token: str | None = None,
 ) -> None:
     """On-demand scan runner called from POST /api/scan."""
+    import asyncio as _asyncio
     import yaml
     from vuln_mesh.cli import _run_scan
+    from vuln_mesh.ingestion.git_clone import is_git_url, clone_repo, cleanup
+    from vuln_mesh.dashboard.state import EventType, PipelineEvent
 
     try:
         with open(config_path) as f:
@@ -62,11 +66,34 @@ async def _scan_runner(
         cfg = {
             "ranker": {"top_n": 200, "min_score": 0.4},
             "agents": {"concurrency": 8, "model_profile": "triage", "verifier_profile": "verifier"},
-            "adapters": {"triage": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
-                         "verifier": {"provider": "anthropic", "model": "claude-sonnet-4-6"}},
+            "adapters": {
+                "triage": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
+                "verifier": {"provider": "anthropic", "model": "claude-sonnet-4-6"},
+            },
         }
 
-    await _run_scan(cfg, source, None, output, tracker)
+    temp_dir = None
+    scan_source = source
+
+    if is_git_url(source):
+        await tracker.emit(PipelineEvent(EventType.SCAN_STARTED, {"target": source, "phase": "cloning"}))
+        try:
+            loop = _asyncio.get_event_loop()
+            temp_dir = await loop.run_in_executor(
+                None, lambda: clone_repo(source, github_token)
+            )
+            scan_source = temp_dir
+            log.info("Cloned %s → %s", source, temp_dir)
+        except RuntimeError as exc:
+            await tracker.emit(PipelineEvent(EventType.ERROR, {"message": str(exc)}))
+            return
+
+    try:
+        await _run_scan(cfg, scan_source, None, output, tracker)
+    finally:
+        if temp_dir:
+            cleanup(temp_dir)
+            log.info("Cleaned up temp clone %s", temp_dir)
 
 
 app = create_app(tracker, scan_factory=_build_scan_factory(), scan_runner=_scan_runner)
