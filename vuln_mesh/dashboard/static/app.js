@@ -82,6 +82,21 @@ function setStageState(name, st) {  // st: '' | 'active' | 'done'
   el.className = 'stage ' + st;
 }
 
+function setStageSub(name, text) {
+  const el = document.getElementById('stage-sub-' + name);
+  if (el) el.textContent = text;
+}
+
+function updateMeshSub() {
+  const files = [...state.files.values()];
+  const hunting  = files.filter(f => f.status === 'hunting').length;
+  const verified = files.filter(f => f.status === 'verified').length;
+  const done     = files.filter(f => f.status === 'done').length;
+  const total    = files.length;
+  if (total === 0) return;
+  setStageSub('agents', `${hunting} hunting · ${verified} verified · ${done} done`);
+}
+
 // ── Render functions ───────────────────────────────────────
 function renderStats(stats) {
   els.ingested.textContent  = stats.files_ingested ?? 0;
@@ -179,15 +194,19 @@ function onEvent(evt) {
       if (data.target) els.target.textContent = shortPath(data.target);
       startTimer();
       setStageState('ingestion', 'active');
+      setStageSub('ingestion', 'walking source tree…');
       addLog('SYSTEM', 'system', `Scan started → ${data.target || ''}`);
       break;
 
     case 'ingestion_complete':
       setStageState('ingestion', 'done');
       setStageState('ranker', 'active');
+      setStageSub('ranker', 'scoring by risk…');
       if (data.count === 0) {
+        setStageSub('ingestion', '0 files — check language');
         addLog('WARN', 'error', 'No supported source files found — expected .c .cpp .py .js .ts .go .rs .php .rb .java');
       } else {
+        setStageSub('ingestion', `${data.count} files found`);
         addLog('SYSTEM', 'system', `Ingested ${data.count} source files`);
       }
       break;
@@ -195,13 +214,16 @@ function onEvent(evt) {
     case 'ranking_complete':
       setStageState('ranker', 'done');
       setStageState('agents', 'active');
-      addLog('SYSTEM', 'system', `Ranked ${data.count} files for analysis`);
+      setStageSub('ranker', `${data.count} files ranked`);
+      setStageSub('agents', `0 hunting · 0 verified · 0 done`);
+      addLog('SYSTEM', 'system', `Ranked ${data.count} files · sending to agent mesh`);
       break;
 
     case 'file_started': {
       const file = { path: data.path, score: data.score, status: 'hunting' };
       state.files.set(data.path, file);
       updateFileItem(file);
+      updateMeshSub();
       addLog('HUNT', 'hunt', shortPath(data.path));
       break;
     }
@@ -213,6 +235,9 @@ function onEvent(evt) {
     case 'verified': {
       const file = state.files.get(data.path);
       if (file) { file.status = 'verified'; updateFileItem(file); }
+      updateMeshSub();
+      setStageState('oracle', 'active');
+      setStageSub('oracle', `verifying ${shortPath(data.path)}…`);
       addLog('VERIFY', 'verify', `✓ ${data.bug_class} in ${shortPath(data.path)}`);
       break;
     }
@@ -220,6 +245,7 @@ function onEvent(evt) {
     case 'discarded': {
       const file = state.files.get(data.path);
       if (file) { file.status = 'done'; updateFileItem(file); }
+      updateMeshSub();
       addLog('DISCARD', 'discard', `${shortPath(data.path)} — ${data.reason || ''}`);
       break;
     }
@@ -229,21 +255,28 @@ function onEvent(evt) {
       if (data.status === 'crashed') {
         state.findings.push(data);
         renderFinding(data);
+        setStageSub('oracle', `${state.findings.length} confirmed`);
         addLog('ORACLE', 'confirm', `CONFIRMED ${data.bug_class} in ${shortPath(data.path)}`);
       } else {
         addLog('ORACLE', 'oracle', `${data.status} — ${shortPath(data.path)}`);
       }
       break;
 
-    case 'scan_complete':
+    case 'scan_complete': {
       stopTimer();
+      const confirmed = data.confirmed ?? 0;
+      const total = state.files.size;
       setStageState('agents', 'done');
+      updateMeshSub();
       setStageState('oracle', 'done');
+      setStageSub('oracle', `${confirmed} confirmed`);
       setStageState('report', 'done');
+      setStageSub('report', confirmed > 0 ? `${confirmed} finding(s) written` : 'no findings');
       els.status.className = 'status-badge complete';
       els.status.innerHTML = '<div class="status-dot"></div>COMPLETE';
-      addLog('SYSTEM', 'confirm', `Scan complete — ${data.confirmed} confirmed finding(s)`);
+      addLog('SYSTEM', 'confirm', `Scan complete — ${confirmed} confirmed finding(s) across ${total} file(s)`);
       break;
+    }
 
     case 'error':
       addLog('ERROR', 'error', data.message || JSON.stringify(data));

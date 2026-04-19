@@ -100,23 +100,43 @@
 <!-- ── PIPELINE BAR ────────────────────────────────────── -->
 <div class="pipeline-bar">
   <div class="stage" id="stage-ingestion">
-    <div class="stage-dot"></div>Ingestion
+    <div class="stage-dot"></div>
+    <div class="stage-body">
+      <span class="stage-name">Ingestion</span>
+      <span class="stage-sub" id="stage-sub-ingestion">walk source tree</span>
+    </div>
   </div>
   <div class="stage-arrow">→</div>
   <div class="stage" id="stage-ranker">
-    <div class="stage-dot"></div>Ranker
+    <div class="stage-dot"></div>
+    <div class="stage-body">
+      <span class="stage-name">Ranker</span>
+      <span class="stage-sub" id="stage-sub-ranker">score by risk</span>
+    </div>
   </div>
   <div class="stage-arrow">→</div>
   <div class="stage" id="stage-agents">
-    <div class="stage-dot"></div>Agent Mesh
+    <div class="stage-dot"></div>
+    <div class="stage-body">
+      <span class="stage-name">Agent Mesh</span>
+      <span class="stage-sub" id="stage-sub-agents">parallel LLM hunters</span>
+    </div>
   </div>
   <div class="stage-arrow">→</div>
   <div class="stage" id="stage-oracle">
-    <div class="stage-dot"></div>Oracle
+    <div class="stage-dot"></div>
+    <div class="stage-body">
+      <span class="stage-name">Oracle</span>
+      <span class="stage-sub" id="stage-sub-oracle">adversarial verify</span>
+    </div>
   </div>
   <div class="stage-arrow">→</div>
   <div class="stage" id="stage-report">
-    <div class="stage-dot"></div>Report
+    <div class="stage-dot"></div>
+    <div class="stage-body">
+      <span class="stage-name">Report</span>
+      <span class="stage-sub" id="stage-sub-report">markdown + sarif</span>
+    </div>
   </div>
 </div>
 
