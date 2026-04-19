@@ -18,6 +18,13 @@
   --yellow-dim:  rgba(245, 158, 11, 0.12);
   --red:         #f43f5e;
   --red-dim:     rgba(244, 63, 94, 0.12);
+
+  /* Dimension colours */
+  --dim-triage:       #94a3b8;
+  --dim-surface:      #22d3ee;
+  --dim-influence:    #a78bfa;
+  --dim-reachability: #f59e0b;
+  --dim-synth:        #34d399;
   --orange:      #fb923c;
 
   --text:        #dde2f0;
@@ -291,9 +298,16 @@ header {
   background: var(--border);
   transition: background 0.25s;
 }
-.agent-card.hunting::before  { background: var(--cyan); }
+.agent-card.hunting::before  { background: var(--dim-color, var(--cyan)); }
 .agent-card.verified::before { background: var(--green); }
-.agent-card.error::before    { background: var(--red, #f87171); }
+.agent-card.error::before    { background: var(--red); }
+
+/* per-dimension top-bar colour */
+.agent-card[data-dim="triage"]       { --dim-color: var(--dim-triage); }
+.agent-card[data-dim="surface"]      { --dim-color: var(--dim-surface); }
+.agent-card[data-dim="influence"]    { --dim-color: var(--dim-influence); }
+.agent-card[data-dim="reachability"] { --dim-color: var(--dim-reachability); }
+.agent-card[data-dim="synth"]        { --dim-color: var(--dim-synth); }
 
 .agent-card.hunting  { border-color: var(--border-a); background: var(--bg-surface); }
 .agent-card.verified { border-color: var(--green); background: var(--green-dim); }
@@ -341,6 +355,25 @@ header {
   justify-content: space-between;
   gap: 4px;
 }
+.agent-dim-badge {
+  font-size: 8px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+  color: var(--dim-color, var(--text-3));
+  flex-shrink: 0;
+}
+.agent-corroboration {
+  font-size: 8px;
+  color: var(--yellow);
+  font-weight: 700;
+  display: none;
+}
+.agent-corroboration.visible { display: inline; }
+
 .agent-score {
   font-family: var(--mono);
   font-size: 9px;

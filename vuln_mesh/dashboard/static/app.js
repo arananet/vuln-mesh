@@ -111,15 +111,23 @@ function _agentLabel(status) {
   return { hunting: 'HUNTING', verified: 'FOUND', done: 'CLEAN', error: 'ERROR' }[status] || status.toUpperCase();
 }
 
+const _DIM_LABEL = {
+  triage: 'TRIAGE', surface: 'SURFACE', influence: 'INFLUENCE',
+  reachability: 'REACH', synth: 'SYNTH',
+};
+
 function renderAgentCard(file) {
   const grid = document.getElementById('agent-grid');
-  const idx  = state.files.size;   // 1-based after insertion
+  const idx  = state.files.size;
+  const dim  = file.dimension || 'triage';
   const el   = document.createElement('div');
   el.className = `agent-card ${file.status}`;
-  el.id = `file-${CSS.escape(file.path)}`;
+  el.id = `agent-${CSS.escape(file.agentId || file.path)}`;
+  el.dataset.dim = dim;
   el.innerHTML = `
     <div class="agent-card-header">
       <span class="agent-id">AGENT #${idx}</span>
+      <span class="agent-dim-badge">${_DIM_LABEL[dim] || dim.toUpperCase()}</span>
       <span class="agent-status-dot"></span>
     </div>
     <div class="agent-file" title="${file.path}">${shortPath(file.path)}</div>
@@ -134,7 +142,8 @@ function renderAgentCard(file) {
 }
 
 function updateFileItem(file) {
-  const existing = document.getElementById(`file-${CSS.escape(file.path)}`);
+  const cardId = `agent-${CSS.escape(file.agentId || file.path)}`;
+  const existing = document.getElementById(cardId);
   if (existing) {
     existing.className = `agent-card ${file.status}`;
     const label = existing.querySelector('.agent-state-label');
@@ -222,11 +231,13 @@ function onEvent(evt) {
       break;
 
     case 'file_started': {
-      const file = { path: data.path, score: data.score, status: 'hunting' };
-      state.files.set(data.path, file);
+      const agentId = data.agent_id || data.path;
+      const dim = data.dimension || 'triage';
+      const file = { path: data.path, score: data.score, status: 'hunting', dimension: dim, agentId };
+      state.files.set(agentId, file);
       updateFileItem(file);
       updateMeshSub();
-      addLog('HUNT', 'hunt', shortPath(data.path));
+      addLog('HUNT', 'hunt', `[${(dim).toUpperCase()}] ${shortPath(data.path)}`);
       break;
     }
 
@@ -235,7 +246,8 @@ function onEvent(evt) {
       break;
 
     case 'verified': {
-      const file = state.files.get(data.path);
+      const agentId = data.agent_id || data.path;
+      const file = state.files.get(agentId) || state.files.get(data.path);
       if (file) { file.status = 'verified'; updateFileItem(file); }
       updateMeshSub();
       setStageState('oracle', 'active');
@@ -245,10 +257,12 @@ function onEvent(evt) {
     }
 
     case 'discarded': {
-      const file = state.files.get(data.path);
+      const agentId = data.agent_id || data.path;
+      const file = state.files.get(agentId) || state.files.get(data.path);
       if (file) { file.status = 'done'; updateFileItem(file); }
       updateMeshSub();
-      addLog('DISCARD', 'discard', `${shortPath(data.path)} — ${data.reason || ''}`);
+      const dimLabel = data.dimension ? `[${data.dimension.toUpperCase()}] ` : '';
+      addLog('DISCARD', 'discard', `${dimLabel}${shortPath(data.path)} — ${data.reason || ''}`);
       break;
     }
 

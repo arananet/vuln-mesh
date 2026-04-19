@@ -12,7 +12,7 @@ from vuln_mesh.ranker.scorer import RankedFile
 
 def _make_ranked(path="test.c", content="void f(){strcpy(a,b);}") -> RankedFile:
     node = FileNode(path=path, language="c", content=content, size_bytes=len(content))
-    return RankedFile(node=node, score=0.8, rationale="unsafe_density=0.5")
+    return RankedFile(node=node, score=0.8, surface=0.7, influence=0.5, reachability=0.6, rationale="unsafe_density=0.5")
 
 
 def _make_adapter(response: str) -> BaseAdapter:
