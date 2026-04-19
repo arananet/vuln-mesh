@@ -55,6 +55,10 @@ class Finding:
     confidence: float = 1.0
 
 
+class LLMError(Exception):
+    """Raised when the LLM call fails so callers can surface it to the dashboard."""
+
+
 class HuntAgent:
     def __init__(self, adapter: BaseAdapter) -> None:
         self.adapter = adapter
@@ -71,7 +75,7 @@ class HuntAgent:
             items = json.loads(raw)
         except Exception as exc:
             log.warning("Hunt agent failed for %s: %s", ranked.node.path, exc)
-            return []
+            raise LLMError(str(exc)) from exc
 
         findings = []
         for item in items:

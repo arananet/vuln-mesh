@@ -46,12 +46,13 @@ async def test_hunt_agent_empty_response():
 
 
 @pytest.mark.asyncio
-async def test_hunt_agent_adapter_exception_skipped():
+async def test_hunt_agent_adapter_exception_raises_llm_error():
+    from vuln_mesh.agents.hunt import LLMError
     adapter = MagicMock(spec=BaseAdapter)
     adapter.complete = AsyncMock(side_effect=RuntimeError("network error"))
     agent = HuntAgent(adapter)
-    findings = await agent.run(_make_ranked())
-    assert findings == []
+    with pytest.raises(LLMError, match="network error"):
+        await agent.run(_make_ranked())
 
 
 @pytest.mark.asyncio

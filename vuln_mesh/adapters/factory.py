@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from .anthropic import AnthropicAdapter
 from .base import AdapterConfig, BaseAdapter
+from .cloudflare import CloudflareAdapter
 from .ollama import OllamaAdapter
 
 _REGISTRY: dict[str, type[BaseAdapter]] = {
     "anthropic": AnthropicAdapter,
+    "cloudflare": CloudflareAdapter,
     "ollama": OllamaAdapter,
 }
 

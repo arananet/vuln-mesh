@@ -7,7 +7,7 @@ from vuln_mesh.adapters.base import BaseAdapter
 from vuln_mesh.dashboard.state import EventType, PipelineEvent, PipelineTracker
 from vuln_mesh.ranker.scorer import RankedFile
 
-from .hunt import HuntAgent
+from .hunt import HuntAgent, LLMError
 from .verifier import VerifiedFinding, VerifierAgent
 
 log = logging.getLogger(__name__)
@@ -35,7 +35,12 @@ async def run_mesh(
                 "score": ranked.score,
             })
 
-            findings = await hunter.run(ranked)
+            try:
+                findings = await hunter.run(ranked)
+            except LLMError as exc:
+                await _emit(EventType.ERROR, {"message": f"LLM error on {ranked.node.path}: {exc}"})
+                await _emit(EventType.DISCARDED, {"path": ranked.node.path, "reason": "LLM error"})
+                return []
 
             if not findings:
                 await _emit(EventType.DISCARDED, {

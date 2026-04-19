@@ -24,18 +24,35 @@ report:
   cvss_estimate: true
 
 adapters:
+  # ── Cloudflare Workers AI (recommended for Railway — no GPU needed) ──────
   triage:
-    provider: ollama
-    model: qwen2.5-coder:32b
-    base_url: http://localhost:11434
-    api_key: ""
+    provider: cloudflare
+    model: "@cf/meta/llama-3.1-8b-instruct"
+    api_key: ""              # set CF_API_TOKEN env var
 
   verifier:
-    provider: anthropic
-    model: claude-sonnet-4-6
-    api_key: ""              # set ANTHROPIC_API_KEY env var or fill here
+    provider: cloudflare
+    model: "@cf/meta/llama-3.1-70b-instruct"
+    api_key: ""              # set CF_API_TOKEN env var
+
+  # ── Anthropic (higher quality, requires ANTHROPIC_API_KEY) ──────────────
+  # triage:
+  #   provider: anthropic
+  #   model: claude-haiku-4-5-20251001
+  #   api_key: ""
+
+  # verifier:
+  #   provider: anthropic
+  #   model: claude-sonnet-4-6
+  #   api_key: ""
+
+  # ── Ollama (local, no cost) ──────────────────────────────────────────────
+  # triage:
+  #   provider: ollama
+  #   model: qwen2.5-coder:32b
+  #   base_url: http://localhost:11434
 
   exploit:
-    provider: anthropic
-    model: claude-sonnet-4-6
+    provider: cloudflare
+    model: "@cf/meta/llama-3.1-70b-instruct"
     api_key: ""
