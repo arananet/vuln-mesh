@@ -67,8 +67,8 @@ async def _scan_runner(
             "ranker": {"top_n": 200, "min_score": 0.4},
             "agents": {"concurrency": 8, "model_profile": "triage", "verifier_profile": "verifier"},
             "adapters": {
-                "triage": {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
-                "verifier": {"provider": "anthropic", "model": "claude-sonnet-4-6"},
+                "triage":   {"provider": "cloudflare", "model": "@cf/meta/llama-3.1-8b-instruct"},
+                "verifier": {"provider": "cloudflare", "model": "@cf/meta/llama-3.1-70b-instruct"},
             },
         }
 
