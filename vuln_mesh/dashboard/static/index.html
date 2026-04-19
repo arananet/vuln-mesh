@@ -147,10 +147,15 @@
   <div class="panel">
     <div class="panel-header">
       <span>Agent Mesh</span>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-view-mesh" onclick="setView('mesh')">MESH</button>
+        <button class="view-btn" id="btn-view-cards" onclick="setView('cards')">CARDS</button>
+      </div>
       <span class="panel-count" id="file-count">0 agents</span>
     </div>
-    <div class="panel-body" id="file-list">
-      <div class="agent-grid" id="agent-grid"></div>
+    <div class="panel-body mesh-view" id="file-list">
+      <canvas id="mesh-canvas"></canvas>
+      <div class="agent-grid" id="agent-grid" hidden></div>
     </div>
   </div>
 

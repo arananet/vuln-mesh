@@ -267,6 +267,43 @@ header {
 .panel-body::-webkit-scrollbar-track { background: transparent; }
 .panel-body::-webkit-scrollbar-thumb { background: var(--border-a); border-radius: 2px; }
 
+/* ── VIEW TOGGLE ─────────────────────────────────────────── */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+}
+.view-btn {
+  padding: 2px 8px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.view-btn.active { background: var(--purple); color: #fff; }
+.view-btn:not(.active):hover { color: var(--text-2); }
+
+/* ── MESH CANVAS ─────────────────────────────────────────── */
+.panel-body.mesh-view {
+  padding: 0;
+  overflow: hidden;
+}
+#mesh-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#mesh-canvas[hidden] { display: none; }
+
 /* ── AGENT MESH GRID ─────────────────────────────────────── */
 .agent-grid {
   display: grid;
