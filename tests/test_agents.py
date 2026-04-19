@@ -109,9 +109,11 @@ async def test_run_mesh_filters_unverified():
     }])
     verify_resp = json.dumps({"verified": False, "rationale": "false positive"})
 
-    ranked = [_make_ranked("f.c")]
+    # Low surface (< 0.25) → only TRIAGE dimension → corroboration=1 → verifier runs
+    node = FileNode(path="f.c", language="c", content="void f(){}", size_bytes=10)
+    low_surface = RankedFile(node=node, score=0.1, surface=0.1, influence=0.1, reachability=0.1, rationale="low")
     results = await run_mesh(
-        ranked,
+        [low_surface],
         _make_adapter(hunt_resp),
         _make_adapter(verify_resp),
     )

@@ -144,7 +144,7 @@ class HuntAgent:
             log.warning("[%s] adapter failed for %s: %s", dimension.value, ranked.node.path, exc)
             raise LLMError(str(exc)) from exc
 
-        items = _parse_llm_response(raw, ranked.node.path)
+        items = _parse_llm_response(raw, ranked.node.path)[:5]  # cap at 5 per dimension
         return [
             Finding(
                 file_path=ranked.node.path,

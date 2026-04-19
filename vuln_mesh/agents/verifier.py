@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 
 from vuln_mesh.adapters.base import BaseAdapter
@@ -11,23 +12,26 @@ from .hunt import Finding
 log = logging.getLogger(__name__)
 
 VERIFIER_SYSTEM = """\
-You are a skeptical security researcher. You will be shown a claimed vulnerability finding
-and the source code it references. Your job is to DISPROVE it.
+You are a senior security engineer performing a second-pass review of a reported vulnerability.
 
-Look for reasons the finding is wrong:
-- Does the code path actually exist?
-- Is the "exploit input" actually reachable?
-- Is there implicit bounds checking the first analyst missed?
-- Would the program crash before reaching the bug?
+Your job is to assess whether the finding is PLAUSIBLE and REALISTIC:
+- Does the code pattern match the claimed vulnerability class?
+- Is there a realistic path where attacker-controlled input reaches the dangerous operation?
+- Would this be reportable in a real-world penetration test or bug bounty?
+
+You do NOT need certainty. Confirm if the vulnerability is realistic and the code evidence
+supports it. Only reject if the finding is clearly wrong — the code doesn't exist, the
+operation is provably safe (e.g., fully sanitized, unreachable), or the bug class is
+completely inapplicable to this language/context.
 
 Respond with a JSON object (and nothing else):
 {
-  "verified": <true if the bug is real, false if you can disprove it>,
-  "rationale": "<one paragraph explaining your conclusion>"
+  "verified": <true if plausible and realistic, false if clearly incorrect>,
+  "rationale": "<one concise sentence explaining your decision>"
 }
-
-Be rigorous. Approve only what you cannot disprove.
 """
+
+_JSON_OBJ_RE = re.compile(r'\{[\s\S]*\}')
 
 
 @dataclass
@@ -42,6 +46,15 @@ class VerifierAgent:
         self.adapter = adapter
 
     async def run(self, finding: Finding, file_content: str) -> VerifiedFinding:
+        # Corroboration bypass: if 2+ independent dimensions found the same bug, confirm it
+        if finding.corroboration >= 2:
+            log.info("Auto-confirmed by corroboration (%d dims): %s", finding.corroboration, finding.bug_class)
+            return VerifiedFinding(
+                finding=finding,
+                verified=True,
+                verifier_rationale=f"Corroborated by {finding.corroboration} independent analysis dimensions.",
+            )
+
         prompt = (
             f"=== CLAIMED FINDING ===\n"
             f"bug_class: {finding.bug_class}\n"
@@ -54,14 +67,30 @@ class VerifierAgent:
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            raw = await self.adapter.complete(messages, VERIFIER_SYSTEM, max_tokens=1024)
-            data = json.loads(raw)
+            raw = await self.adapter.complete(messages, VERIFIER_SYSTEM, max_tokens=512)
+            data = _parse_verifier_response(raw)
             return VerifiedFinding(
                 finding=finding,
                 verified=bool(data.get("verified", False)),
                 verifier_rationale=data.get("rationale", ""),
             )
         except Exception as exc:
-            log.warning("Verifier failed for %s: %s", finding.file_path, exc)
-            # conservative: treat verifier failure as unverified
+            log.warning("Verifier error for %s: %s — treating as unverified", finding.file_path, exc)
             return VerifiedFinding(finding=finding, verified=False, verifier_rationale=str(exc))
+
+
+def _parse_verifier_response(raw: str) -> dict:
+    if not raw or not raw.strip():
+        return {}
+    try:
+        result = json.loads(raw)
+        return result if isinstance(result, dict) else {}
+    except json.JSONDecodeError:
+        m = _JSON_OBJ_RE.search(raw)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                pass
+        log.warning("Non-JSON verifier response: %r", raw[:200])
+        return {}
