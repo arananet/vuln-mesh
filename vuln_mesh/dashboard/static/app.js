@@ -185,7 +185,11 @@ function onEvent(evt) {
     case 'ingestion_complete':
       setStageState('ingestion', 'done');
       setStageState('ranker', 'active');
-      addLog('SYSTEM', 'system', `Ingested ${data.count} C/C++ files`);
+      if (data.count === 0) {
+        addLog('WARN', 'error', 'No C/C++ files found — make sure the source contains .c or .cpp files');
+      } else {
+        addLog('SYSTEM', 'system', `Ingested ${data.count} C/C++ files`);
+      }
       break;
 
     case 'ranking_complete':

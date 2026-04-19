@@ -40,7 +40,7 @@
         id="scan-source"
         class="login-input"
         type="text"
-        placeholder="/path/to/c-project"
+        placeholder="/path/to/c-project  or  https://github.com/user/repo"
         spellcheck="false"
         required
       >
@@ -67,7 +67,7 @@
       <button id="scan-btn" type="submit" class="login-btn">Start Analysis</button>
     </form>
     <p class="login-disclaimer">
-      Provide a local path to a C/C++ project accessible by the backend server.
+      Provide a local path or a GitHub URL to a C/C++ project.
       Only analyze code you own or have explicit written permission to test.
     </p>
   </div>
@@ -204,6 +204,13 @@
 </div>
 
 <button class="history-btn" onclick="toggleHistory()" title="Scan history">⏱ History</button>
+
+<!-- ── FOOTER ────────────────────────────────────────────── -->
+<footer class="site-footer">
+  <span class="footer-brand">◈ vuln-mesh</span>
+  <span class="footer-sep">·</span>
+  <span class="footer-author">by Eduardo Arana</span>
+</footer>
 
 <!-- config.js is generated at container startup in the frontend service.
      When served directly from the backend, this file won't exist and

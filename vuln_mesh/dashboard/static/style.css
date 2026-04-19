@@ -657,6 +657,23 @@ header {
   font-family: var(--mono);
 }
 
+/* ── FOOTER ──────────────────────────────────────────────── */
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.footer-brand { color: var(--purple); font-weight: 600; }
+.footer-sep   { color: var(--border); }
+.footer-author { color: var(--text-2); }
+
 /* ── MOBILE ──────────────────────────────────────────────── */
 @media (max-width: 700px) {
   html, body { height: auto; overflow: auto; }
