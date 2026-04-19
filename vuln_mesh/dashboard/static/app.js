@@ -186,9 +186,9 @@ function onEvent(evt) {
       setStageState('ingestion', 'done');
       setStageState('ranker', 'active');
       if (data.count === 0) {
-        addLog('WARN', 'error', 'No C/C++ files found — make sure the source contains .c or .cpp files');
+        addLog('WARN', 'error', 'No supported source files found — expected .c .cpp .py .js .ts .go .rs .php .rb .java');
       } else {
-        addLog('SYSTEM', 'system', `Ingested ${data.count} C/C++ files`);
+        addLog('SYSTEM', 'system', `Ingested ${data.count} source files`);
       }
       break;
 

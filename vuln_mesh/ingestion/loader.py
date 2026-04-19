@@ -4,9 +4,23 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-_CPP_EXTS = {".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx"}
+_LANG_MAP: dict[str, str] = {
+    ".c": "c", ".h": "c",
+    ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hxx": "cpp",
+    ".py": "python",
+    ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript",
+    ".ts": "typescript", ".tsx": "typescript",
+    ".go": "go",
+    ".rs": "rust",
+    ".rb": "ruby",
+    ".php": "php",
+    ".java": "java",
+}
+
 _INCLUDE_RE = re.compile(r'#\s*include\s+["<]([^">]+)[">]')
-_MAIN_RE = re.compile(r'\bint\s+main\s*\(')
+_IMPORT_RE = re.compile(r'''(?:^|\n)\s*(?:import|from)\s+["']?([A-Za-z0-9_./\\-]+)''')
+_REQUIRE_RE = re.compile(r'''require\s*\(\s*["']([^"']+)["']\s*\)''')
+_MAIN_RE = re.compile(r'\bint\s+main\s*\(|\bif\s+__name__\s*==|\bfunc\s+main\s*\(|\bpublic\s+static\s+void\s+main\s*\(')
 
 
 class IngestionError(Exception):
@@ -29,8 +43,12 @@ class FileGraph:
     edges: list[tuple[str, str]] = field(default_factory=list)
 
 
-def _parse_includes(content: str) -> list[str]:
-    return _INCLUDE_RE.findall(content)
+def _parse_imports(content: str, language: str) -> list[str]:
+    if language in ("c", "cpp"):
+        return _INCLUDE_RE.findall(content)
+    if language in ("javascript", "typescript"):
+        return _IMPORT_RE.findall(content) + _REQUIRE_RE.findall(content)
+    return _IMPORT_RE.findall(content)
 
 
 def _detect_entry_point(content: str) -> bool:
@@ -46,14 +64,15 @@ def ingest(source: str) -> FileGraph:
     path_index: dict[str, FileNode] = {}
 
     for p in sorted(root.rglob("*")):
-        if not p.is_file() or p.suffix.lower() not in _CPP_EXTS:
+        lang = _LANG_MAP.get(p.suffix.lower())
+        if not p.is_file() or lang is None:
             continue
         content = p.read_text(errors="replace")
         node = FileNode(
             path=str(p),
-            language="c" if p.suffix.lower() in {".c", ".h"} else "cpp",
+            language=lang,
             content=content,
-            includes=_parse_includes(content),
+            includes=_parse_imports(content, lang),
             is_entry_point=_detect_entry_point(content),
             size_bytes=p.stat().st_size,
         )

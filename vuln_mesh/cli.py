@@ -88,7 +88,7 @@ async def _run_scan(
 
     log.info("Ingesting %s", src)
     graph = ingest(src)
-    log.info("Found %d C/C++ files", len(graph.nodes))
+    log.info("Found %d source files", len(graph.nodes))
     await _emit(EventType.INGESTION_COMPLETE, {"count": len(graph.nodes)})
 
     ranked = rank(graph, top_n=top_n, min_score=min_score)

@@ -6,10 +6,46 @@ from dataclasses import dataclass
 
 from vuln_mesh.ingestion.loader import FileGraph, FileNode
 
-_UNSAFE_FUNCS = re.compile(
-    r'\b(strcpy|strcat|sprintf|gets|scanf|memcpy|strncpy|strncat|snprintf'
-    r'|vsprintf|vsnprintf|realpath|getwd|mktemp|tmpnam|tempnam)\s*\('
-)
+_UNSAFE_BY_LANG: dict[str, re.Pattern] = {
+    "c": re.compile(
+        r'\b(strcpy|strcat|sprintf|gets|scanf|memcpy|strncpy|strncat|snprintf'
+        r'|vsprintf|vsnprintf|realpath|getwd|mktemp|tmpnam|tempnam|system|popen)\s*\('
+    ),
+    "cpp": re.compile(
+        r'\b(strcpy|strcat|sprintf|gets|scanf|memcpy|strncpy|strncat|snprintf'
+        r'|vsprintf|vsnprintf|realpath|getwd|mktemp|tmpnam|tempnam|system|popen)\s*\('
+    ),
+    "python": re.compile(
+        r'\b(eval|exec|pickle\.loads|yaml\.load|subprocess\.call|os\.system'
+        r'|os\.popen|input|__import__|compile)\s*\('
+    ),
+    "javascript": re.compile(
+        r'\b(eval|Function|child_process|exec|execSync|spawn|spawnSync'
+        r'|innerHTML|dangerouslySetInnerHTML|document\.write)\b'
+    ),
+    "typescript": re.compile(
+        r'\b(eval|Function|child_process|exec|execSync|spawn|spawnSync'
+        r'|innerHTML|dangerouslySetInnerHTML|document\.write)\b'
+    ),
+    "go": re.compile(
+        r'\b(exec\.Command|os\.Open|fmt\.Sprintf|unsafe\.|syscall\.)\b'
+    ),
+    "rust": re.compile(
+        r'\b(unsafe\s*\{|from_raw|transmute|process::Command|format!)\b'
+    ),
+    "php": re.compile(
+        r'\b(eval|exec|shell_exec|system|passthru|popen|proc_open'
+        r'|unserialize|base64_decode|mysql_query)\s*\('
+    ),
+    "ruby": re.compile(
+        r'\b(eval|send|system|exec|`|Kernel\.|Marshal\.load|YAML\.load)\b'
+    ),
+    "java": re.compile(
+        r'\b(Runtime\.exec|ProcessBuilder|ObjectInputStream|eval'
+        r'|prepareStatement|createQuery)\b'
+    ),
+}
+_UNSAFE_FALLBACK = re.compile(r'\b(eval|exec|system|unsafe)\b')
 
 _W_UNSAFE = 0.5
 _W_SIZE = 0.3
@@ -24,7 +60,8 @@ class RankedFile:
 
 
 def _unsafe_density(node: FileNode) -> float:
-    matches = len(_UNSAFE_FUNCS.findall(node.content))
+    pattern = _UNSAFE_BY_LANG.get(node.language, _UNSAFE_FALLBACK)
+    matches = len(pattern.findall(node.content))
     lines = max(node.content.count("\n"), 1)
     return matches / lines
 

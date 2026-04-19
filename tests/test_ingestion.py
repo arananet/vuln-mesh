@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from vuln_mesh.ingestion.loader import ingest, _parse_includes, _detect_entry_point, IngestionError
+from vuln_mesh.ingestion.loader import ingest, _parse_imports, _detect_entry_point, IngestionError
 
 FIXTURES = Path(__file__).parent / "fixtures" / "simple"
 
@@ -45,7 +45,7 @@ def test_ingest_empty_dir(tmp_path):
 
 def test_parse_includes():
     src = '#include <stdio.h>\n#include "utils.h"\n'
-    includes = _parse_includes(src)
+    includes = _parse_imports(src, "c")
     assert "stdio.h" in includes
     assert "utils.h" in includes
 

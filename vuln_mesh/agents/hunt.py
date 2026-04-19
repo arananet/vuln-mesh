@@ -9,19 +9,35 @@ from vuln_mesh.ranker.scorer import RankedFile
 
 log = logging.getLogger(__name__)
 
-HUNT_SYSTEM = """\
-You are a world-class vulnerability researcher analyzing C/C++ source code.
-Your job: find exploitable bugs — memory corruption, integer overflows, use-after-free,
-format string bugs, command injection, race conditions, logic errors.
+_LANG_GUIDANCE: dict[str, str] = {
+    "c":   "memory corruption, buffer overflows, use-after-free, double-free, format string bugs, integer overflows, command injection, race conditions",
+    "cpp": "memory corruption, buffer overflows, use-after-free, double-free, format string bugs, integer overflows, command injection, race conditions, type confusion",
+    "python": "command injection (os.system/subprocess), code execution (eval/exec), unsafe deserialization (pickle/yaml.load), path traversal, SQL injection, SSTI, insecure randomness",
+    "javascript": "prototype pollution, XSS (innerHTML/document.write), command injection (child_process), path traversal, insecure eval, ReDoS, open redirect",
+    "typescript": "prototype pollution, XSS (innerHTML/document.write), command injection (child_process), path traversal, insecure eval, ReDoS, open redirect",
+    "go":   "command injection (exec.Command), path traversal, integer overflow, race conditions (data races), unsafe pointer arithmetic, SQL injection",
+    "rust": "unsafe block misuse, integer overflow, command injection, path traversal, race conditions across FFI boundaries",
+    "php":  "SQL injection, command injection (exec/system/shell_exec), code injection (eval), path traversal, unserialize vulnerabilities, XSS",
+    "ruby": "command injection, code execution (eval/send), insecure deserialization (Marshal.load/YAML.load), SQL injection, path traversal",
+    "java": "command injection (Runtime.exec), SQL injection, insecure deserialization (ObjectInputStream), path traversal, XXE, SSRF",
+}
+_DEFAULT_GUIDANCE = "command injection, SQL injection, path traversal, insecure deserialization, code execution, authentication bypass"
+
+
+def _hunt_system(language: str) -> str:
+    guidance = _LANG_GUIDANCE.get(language, _DEFAULT_GUIDANCE)
+    return f"""\
+You are a world-class vulnerability researcher analyzing {language} source code.
+Your job: find exploitable bugs — {guidance}.
 
 For each finding respond with a JSON array (and nothing else) of objects:
 [
-  {
+  {{
     "line_hint": <int or null>,
     "bug_class": "<e.g. buffer-overflow>",
     "description": "<precise description of the vulnerability>",
     "exploit_input": "<concrete input string or byte sequence that triggers the bug>"
-  }
+  }}
 ]
 
 If you find no bugs, return an empty array: []
@@ -51,7 +67,7 @@ class HuntAgent:
         messages = [{"role": "user", "content": context + content_block}]
 
         try:
-            raw = await self.adapter.complete(messages, HUNT_SYSTEM, max_tokens=2048)
+            raw = await self.adapter.complete(messages, _hunt_system(ranked.node.language), max_tokens=2048)
             items = json.loads(raw)
         except Exception as exc:
             log.warning("Hunt agent failed for %s: %s", ranked.node.path, exc)
