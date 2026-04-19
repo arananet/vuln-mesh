@@ -447,17 +447,22 @@ document.getElementById('login-form').addEventListener('submit', async e => {
 });
 
 // ── SSE connection ─────────────────────────────────────────
+let _reconnectDelay = 3000;
+
 function connect() {
   const qs = API_KEY ? '?token=' + encodeURIComponent(API_KEY) : '';
   const es = new EventSource(BASE + '/events' + qs);
+  es.onopen = () => { _reconnectDelay = 3000; };
   es.onmessage = e => {
     try { onEvent(JSON.parse(e.data)); }
     catch (err) { console.warn('parse error', err, e.data); }
   };
   es.onerror = () => {
-    addLog('SYSTEM', 'error', 'Connection lost — reconnecting…');
     es.close();
-    setTimeout(connect, 3000);
+    const secs = Math.round(_reconnectDelay / 1000);
+    addLog('SYSTEM', 'error', `Connection lost — reconnecting in ${secs}s…`);
+    setTimeout(connect, _reconnectDelay);
+    _reconnectDelay = Math.min(_reconnectDelay * 2, 30000);
   };
 }
 

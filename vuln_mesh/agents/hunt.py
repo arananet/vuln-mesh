@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 
 from vuln_mesh.adapters.base import BaseAdapter
@@ -59,6 +60,27 @@ class LLMError(Exception):
     """Raised when the LLM call fails so callers can surface it to the dashboard."""
 
 
+_JSON_ARRAY_RE = re.compile(r'\[[\s\S]*\]')
+
+
+def _parse_llm_response(raw: str, path: str) -> list:
+    """Parse a JSON array from raw LLM output, tolerating preamble text."""
+    if not raw or not raw.strip():
+        log.debug("Empty LLM response for %s — treating as no findings", path)
+        return []
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        m = _JSON_ARRAY_RE.search(raw)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                pass
+        log.warning("Non-JSON LLM response for %s: %r", path, raw[:200])
+        return []
+
+
 class HuntAgent:
     def __init__(self, adapter: BaseAdapter) -> None:
         self.adapter = adapter
@@ -72,10 +94,11 @@ class HuntAgent:
 
         try:
             raw = await self.adapter.complete(messages, _hunt_system(ranked.node.language), max_tokens=2048)
-            items = json.loads(raw)
         except Exception as exc:
-            log.warning("Hunt agent failed for %s: %s", ranked.node.path, exc)
+            log.warning("Hunt agent adapter failed for %s: %s", ranked.node.path, exc)
             raise LLMError(str(exc)) from exc
+
+        items = _parse_llm_response(raw, ranked.node.path)
 
         findings = []
         for item in items:
