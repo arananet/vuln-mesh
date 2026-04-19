@@ -107,40 +107,42 @@ function renderStats(stats) {
   if (stats.target) els.target.textContent = shortPath(stats.target);
 }
 
-function renderFileItem(file) {
-  const el = document.createElement('div');
-  el.className = `file-item ${file.status}`;
+function _agentLabel(status) {
+  return { hunting: 'HUNTING', verified: 'FOUND', done: 'CLEAN', error: 'ERROR' }[status] || status.toUpperCase();
+}
+
+function renderAgentCard(file) {
+  const grid = document.getElementById('agent-grid');
+  const idx  = state.files.size;   // 1-based after insertion
+  const el   = document.createElement('div');
+  el.className = `agent-card ${file.status}`;
   el.id = `file-${CSS.escape(file.path)}`;
   el.innerHTML = `
-    <div class="file-status-icon"></div>
-    <div class="file-info">
-      <div class="file-path" title="${file.path}">${shortPath(file.path)}</div>
-      <div class="file-meta">
-        <span class="file-score">score ${(file.score || 0).toFixed(3)}</span>
-        <span class="file-state-label">${file.status}</span>
-      </div>
+    <div class="agent-card-header">
+      <span class="agent-id">AGENT #${idx}</span>
+      <span class="agent-status-dot"></span>
+    </div>
+    <div class="agent-file" title="${file.path}">${shortPath(file.path)}</div>
+    <div class="agent-card-footer">
+      <span class="agent-score">${(file.score || 0).toFixed(3)}</span>
+      <span class="agent-state-label">${_agentLabel(file.status)}</span>
     </div>`;
+  const empty = document.getElementById('agent-grid')?.querySelector('.empty-state');
+  if (empty) empty.remove();
+  if (grid) grid.appendChild(el);
   return el;
 }
 
 function updateFileItem(file) {
   const existing = document.getElementById(`file-${CSS.escape(file.path)}`);
   if (existing) {
-    existing.className = `file-item ${file.status}`;
-    const label = existing.querySelector('.file-state-label');
-    if (label) label.textContent = file.status;
+    existing.className = `agent-card ${file.status}`;
+    const label = existing.querySelector('.agent-state-label');
+    if (label) label.textContent = _agentLabel(file.status);
   } else {
-    const item = renderFileItem(file);
-    if (els.fileList.firstChild) {
-      els.fileList.insertBefore(item, els.fileList.firstChild);
-    } else {
-      els.fileList.appendChild(item);
-    }
-    // Remove empty state if present
-    const empty = els.fileList.querySelector('.empty-state');
-    if (empty) empty.remove();
+    renderAgentCard(file);
   }
-  els.fileCount.textContent = `${state.files.size} files`;
+  els.fileCount.textContent = `${state.files.size} agents`;
 }
 
 function renderFinding(finding) {
@@ -472,8 +474,9 @@ function start() {
 
 // ── Init ───────────────────────────────────────────────────
 (async function init() {
-  els.fileList.innerHTML = `
-    <div class="empty-state">
+  const grid = document.getElementById('agent-grid');
+  if (grid) grid.innerHTML = `
+    <div class="empty-state" style="grid-column:1/-1">
       <div class="empty-icon">◈</div>
       <div>Waiting for scan to start…</div>
     </div>`;
