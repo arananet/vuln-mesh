@@ -513,11 +513,11 @@ function onEvent(evt) {
 
   switch (type) {
     case 'state':
-      renderStats(stats || data?.stats || {});
-      if (data?.findings?.length) {
+      renderStats(stats || evt.stats || {});
+      if (evt.findings?.length) {
         state.findings = [];
         els.findings.innerHTML = '';
-        data.findings.forEach(f => {
+        evt.findings.forEach(f => {
           state.findings.push(f);
           renderFinding(f);
         });
