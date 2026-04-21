@@ -120,3 +120,20 @@ async def test_stats_scan_complete():
     await tracker.emit(PipelineEvent(EventType.SCAN_COMPLETE, {"confirmed": 0}))
     assert tracker.stats["scan_complete"] is True
     assert tracker.stats["active_agents"] == 0
+
+
+@pytest.mark.asyncio
+async def test_confirmed_findings_stored_in_tracker():
+    tracker = PipelineTracker()
+    await tracker.emit(PipelineEvent(EventType.ORACLE_RESULT, {
+        "status": "crashed", "path": "a.c", "bug_class": "buffer-overflow",
+    }))
+    await tracker.emit(PipelineEvent(EventType.ORACLE_RESULT, {
+        "status": "skipped", "path": "b.js", "bug_class": "xss",
+    }))
+    await tracker.emit(PipelineEvent(EventType.ORACLE_RESULT, {
+        "status": "clean", "path": "c.c", "bug_class": "null-deref",
+    }))
+    assert len(tracker.confirmed_findings) == 2
+    assert tracker.confirmed_findings[0]["path"] == "a.c"
+    assert tracker.confirmed_findings[1]["path"] == "b.js"

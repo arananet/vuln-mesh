@@ -49,12 +49,15 @@ async def _collect(tracker, disconnect_after=1, heartbeat_interval=0.01):
 async def test_sse_stream_yields_initial_state():
     tracker = PipelineTracker()
     tracker.stats["files_ingested"] = 5
+    tracker.confirmed_findings.append({"path": "a.c", "bug_class": "xss", "status": "skipped"})
     chunks = await _collect(tracker, disconnect_after=0)
     assert len(chunks) == 1
     assert chunks[0].startswith("data: ")
     data = json.loads(chunks[0][6:])
     assert data["type"] == "state"
     assert data["stats"]["files_ingested"] == 5
+    assert len(data["findings"]) == 1
+    assert data["findings"][0]["path"] == "a.c"
 
 
 @pytest.mark.asyncio

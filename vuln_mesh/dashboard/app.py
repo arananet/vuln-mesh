@@ -56,7 +56,7 @@ async def sse_stream(
 ) -> AsyncIterator[str]:
     """Yield SSE-formatted strings. Extracted for unit testability."""
     q = tracker.subscribe()
-    init = json.dumps({"type": "state", "stats": tracker.stats})
+    init = json.dumps({"type": "state", "stats": tracker.stats, "findings": tracker.confirmed_findings})
     yield f"data: {init}\n\n"
     try:
         while True:

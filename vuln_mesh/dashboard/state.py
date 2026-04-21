@@ -32,6 +32,7 @@ class PipelineTracker:
 
     def __init__(self) -> None:
         self._queues: list[asyncio.Queue] = []
+        self.confirmed_findings: list[dict] = []
         self.stats: dict[str, Any] = {
             "files_ingested": 0,
             "files_ranked": 0,
@@ -84,6 +85,7 @@ class PipelineTracker:
         elif t == EventType.ORACLE_RESULT:
             if event.data.get("status") in ("crashed", "skipped", "compile_error"):
                 self.stats["findings_confirmed"] += 1
+                self.confirmed_findings.append(event.data)
         elif t == EventType.SCAN_COMPLETE:
             self.stats["scan_complete"] = True
             self.stats["active_agents"] = 0

@@ -514,6 +514,14 @@ function onEvent(evt) {
   switch (type) {
     case 'state':
       renderStats(stats || data?.stats || {});
+      if (data?.findings?.length) {
+        state.findings = [];
+        els.findings.innerHTML = '';
+        data.findings.forEach(f => {
+          state.findings.push(f);
+          renderFinding(f);
+        });
+      }
       break;
 
     case 'scan_started':
