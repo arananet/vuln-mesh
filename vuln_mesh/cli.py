@@ -116,6 +116,10 @@ async def _run_scan(
             "path": vf.finding.file_path,
             "bug_class": vf.finding.bug_class,
             "status": status_str,
+            "line_hint": vf.finding.line_hint,
+            "description": vf.finding.description[:256] if vf.finding.description else "",
+            "cwe_id": getattr(vf.finding, 'cwe_id', None),
+            "owasp_category": getattr(vf.finding, 'owasp_category', None),
             "output_excerpt": result.output[:512],
         })
         all_oracle_results.append(result)

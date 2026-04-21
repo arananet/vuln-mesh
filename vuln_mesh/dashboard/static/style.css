@@ -479,6 +479,31 @@ header {
   color: var(--text-2);
   line-height: 1.4;
 }
+.oracle-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+.oracle-badge.crashed     { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red); }
+.oracle-badge.verified    { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid #10b981; }
+.oracle-badge.compile-err { background: var(--yellow-dim); color: var(--yellow); border: 1px solid var(--yellow); }
+.finding-tags {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.finding-cwe, .finding-owasp {
+  font-size: 9.5px;
+  font-family: var(--mono);
+  color: var(--text-2);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
 
 /* ── LOG PANEL ───────────────────────────────────────────── */
 .log-panel {

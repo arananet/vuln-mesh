@@ -62,9 +62,9 @@ function shortPath(p) {
 
 function severityOf(bugClass) {
   const cls = (bugClass || '').toLowerCase();
-  if (/format.string|command.inject|heap.overflow/.test(cls)) return 'critical';
-  if (/buffer.overflow|use.after.free|double.free/.test(cls))  return 'high';
-  if (/integer.overflow|race.condition|null.deref/.test(cls))  return 'medium';
+  if (/format.string|command.inject|heap.overflow|sql.inject|ssrf|insecure.deser/.test(cls)) return 'critical';
+  if (/buffer.overflow|use.after.free|double.free|path.traversal|xss/.test(cls))  return 'high';
+  if (/integer.overflow|race.condition|null.deref|prototype.pollut|insecure.eval/.test(cls))  return 'medium';
   return 'low';
 }
 
@@ -464,14 +464,24 @@ function updateFileItem(file) {
 
 function renderFinding(finding) {
   const sev = severityOf(finding.bug_class);
+  const oracleStatus = finding.status || 'crashed';
+  const statusBadge = oracleStatus === 'crashed'
+    ? '<span class="oracle-badge crashed">CRASH</span>'
+    : oracleStatus === 'skipped'
+    ? '<span class="oracle-badge verified">VERIFIED</span>'
+    : '<span class="oracle-badge compile-err">COMPILE ERR</span>';
+  const cweTag = finding.cwe_id ? `<span class="finding-cwe">${finding.cwe_id}</span>` : '';
+  const owaspTag = finding.owasp_category ? `<span class="finding-owasp">${finding.owasp_category}</span>` : '';
   const card = document.createElement('div');
   card.className = 'finding-card';
   card.innerHTML = `
     <div class="finding-header">
       <span class="severity-badge sev-${sev}">${severityLabel(sev)}</span>
+      ${statusBadge}
       <span class="finding-type">${finding.bug_class || 'unknown'}</span>
     </div>
     <div class="finding-path" title="${finding.path}">${shortPath(finding.path)}${finding.line_hint ? ':' + finding.line_hint : ''}</div>
+    ${(cweTag || owaspTag) ? '<div class="finding-tags">' + cweTag + owaspTag + '</div>' : ''}
     <div class="finding-desc">${finding.description || ''}</div>`;
 
   if (els.findings.querySelector('.empty-state')) {
@@ -580,11 +590,14 @@ function onEvent(evt) {
 
     case 'oracle_result':
       setStageState('oracle', 'active');
-      if (data.status === 'crashed') {
+      if (data.status === 'crashed' || data.status === 'skipped' || data.status === 'compile_error') {
         state.findings.push(data);
         renderFinding(data);
         setStageSub('oracle', `${state.findings.length} confirmed`);
-        addLog('ORACLE', 'confirm', `CONFIRMED ${data.bug_class} in ${shortPath(data.path)}`);
+        const statusLabel = data.status === 'crashed' ? 'CONFIRMED'
+          : data.status === 'skipped' ? 'VERIFIED (no oracle)'
+          : 'COMPILE_ERROR';
+        addLog('ORACLE', 'confirm', `${statusLabel} ${data.bug_class} in ${shortPath(data.path)}`);
       } else {
         addLog('ORACLE', 'oracle', `${data.status} — ${shortPath(data.path)}`);
       }

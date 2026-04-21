@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vuln-mesh"
-version = "0.1.0"
+version = "0.2.0"
 description = "Model-agnostic vulnerability discovery pipeline using layered LLM agents"
 readme = "README.md"
 requires-python = ">=3.11"

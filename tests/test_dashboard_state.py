@@ -100,6 +100,20 @@ async def test_stats_oracle_confirmed():
 
 
 @pytest.mark.asyncio
+async def test_stats_oracle_skipped_counts_as_confirmed():
+    tracker = PipelineTracker()
+    await tracker.emit(PipelineEvent(EventType.ORACLE_RESULT, {"status": "skipped", "path": "app.js"}))
+    assert tracker.stats["findings_confirmed"] == 1
+
+
+@pytest.mark.asyncio
+async def test_stats_oracle_compile_error_counts_as_confirmed():
+    tracker = PipelineTracker()
+    await tracker.emit(PipelineEvent(EventType.ORACLE_RESULT, {"status": "compile_error", "path": "x.c"}))
+    assert tracker.stats["findings_confirmed"] == 1
+
+
+@pytest.mark.asyncio
 async def test_stats_scan_complete():
     tracker = PipelineTracker()
     await tracker.emit(PipelineEvent(EventType.FILE_STARTED, {"path": "x.c"}))

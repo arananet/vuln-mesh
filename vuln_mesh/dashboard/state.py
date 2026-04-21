@@ -82,7 +82,7 @@ class PipelineTracker:
         elif t == EventType.DISCARDED:
             self.stats["active_agents"] = max(0, self.stats["active_agents"] - 1)
         elif t == EventType.ORACLE_RESULT:
-            if event.data.get("status") == "crashed":
+            if event.data.get("status") in ("crashed", "skipped", "compile_error"):
                 self.stats["findings_confirmed"] += 1
         elif t == EventType.SCAN_COMPLETE:
             self.stats["scan_complete"] = True
