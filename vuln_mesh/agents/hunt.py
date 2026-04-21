@@ -20,19 +20,76 @@ class Dimension(str, Enum):
     SYNTH        = "synth"        # cross-file synthesis across a subsystem
 
 
+# Language-specific guidance with OWASP/CWE references
 _LANG_GUIDANCE: dict[str, str] = {
-    "c":          "memory corruption, buffer overflows, use-after-free, double-free, format string bugs, integer overflows, command injection, race conditions",
-    "cpp":        "memory corruption, buffer overflows, use-after-free, double-free, format string bugs, integer overflows, command injection, race conditions, type confusion",
-    "python":     "command injection (os.system/subprocess), code execution (eval/exec), unsafe deserialization (pickle/yaml.load), path traversal, SQL injection, SSTI, insecure randomness",
-    "javascript": "prototype pollution, XSS (innerHTML/document.write), command injection (child_process), path traversal, insecure eval, ReDoS, open redirect",
-    "typescript": "prototype pollution, XSS (innerHTML/document.write), command injection (child_process), path traversal, insecure eval, ReDoS, open redirect",
-    "go":         "command injection (exec.Command), path traversal, integer overflow, race conditions (data races), unsafe pointer arithmetic, SQL injection",
-    "rust":       "unsafe block misuse, integer overflow, command injection, path traversal, race conditions across FFI boundaries",
-    "php":        "SQL injection, command injection (exec/system/shell_exec), code injection (eval), path traversal, unserialize vulnerabilities, XSS",
-    "ruby":       "command injection, code execution (eval/send), insecure deserialization (Marshal.load/YAML.load), SQL injection, path traversal",
-    "java":       "command injection (Runtime.exec), SQL injection, insecure deserialization (ObjectInputStream), path traversal, XXE, SSRF",
+    "c": (
+        "memory corruption (CWE-119), buffer overflows (CWE-120/CWE-121/CWE-122), "
+        "use-after-free (CWE-416), double-free (CWE-415), format string bugs (CWE-134), "
+        "integer overflows (CWE-190), command injection (CWE-78/OWASP A03), race conditions (CWE-362)"
+    ),
+    "cpp": (
+        "memory corruption (CWE-119), buffer overflows (CWE-120/CWE-121/CWE-122), "
+        "use-after-free (CWE-416), double-free (CWE-415), format string bugs (CWE-134), "
+        "integer overflows (CWE-190), command injection (CWE-78/OWASP A03), race conditions (CWE-362), "
+        "type confusion (CWE-843)"
+    ),
+    "python": (
+        "command injection via os.system/subprocess (CWE-78/OWASP A03), "
+        "code execution via eval/exec (CWE-94), unsafe deserialization via pickle/yaml.load (CWE-502/OWASP A08), "
+        "path traversal (CWE-22/OWASP A01), SQL injection (CWE-89/OWASP A03), "
+        "SSTI (CWE-1336), insecure randomness (CWE-330), "
+        "SSRF (CWE-918/OWASP A10), broken access control (OWASP A01)"
+    ),
+    "javascript": (
+        "prototype pollution (CWE-1321), XSS via innerHTML/document.write (CWE-79/OWASP A03), "
+        "command injection via child_process (CWE-78/OWASP A03), path traversal (CWE-22/OWASP A01), "
+        "insecure eval (CWE-94), ReDoS (CWE-1333), open redirect (CWE-601), "
+        "insecure deserialization (CWE-502/OWASP A08), SSRF (CWE-918/OWASP A10), "
+        "broken access control (OWASP A01), NoSQL injection (CWE-943)"
+    ),
+    "typescript": (
+        "prototype pollution (CWE-1321), XSS via innerHTML/document.write (CWE-79/OWASP A03), "
+        "command injection via child_process (CWE-78/OWASP A03), path traversal (CWE-22/OWASP A01), "
+        "insecure eval (CWE-94), ReDoS (CWE-1333), open redirect (CWE-601), "
+        "insecure deserialization (CWE-502/OWASP A08), SSRF (CWE-918/OWASP A10)"
+    ),
+    "go": (
+        "command injection via exec.Command (CWE-78/OWASP A03), path traversal (CWE-22/OWASP A01), "
+        "integer overflow (CWE-190), race conditions/data races (CWE-362), "
+        "unsafe pointer arithmetic, SQL injection (CWE-89/OWASP A03)"
+    ),
+    "rust": (
+        "unsafe block misuse (CWE-119), integer overflow (CWE-190), "
+        "command injection (CWE-78/OWASP A03), path traversal (CWE-22/OWASP A01), "
+        "race conditions across FFI boundaries (CWE-362)"
+    ),
+    "php": (
+        "SQL injection (CWE-89/OWASP A03), command injection via exec/system/shell_exec (CWE-78/OWASP A03), "
+        "code injection via eval (CWE-94), path traversal (CWE-22/OWASP A01), "
+        "unserialize vulnerabilities (CWE-502/OWASP A08), XSS (CWE-79/OWASP A03)"
+    ),
+    "ruby": (
+        "command injection (CWE-78/OWASP A03), code execution via eval/send (CWE-94), "
+        "insecure deserialization via Marshal.load/YAML.load (CWE-502/OWASP A08), "
+        "SQL injection (CWE-89/OWASP A03), path traversal (CWE-22/OWASP A01)"
+    ),
+    "java": (
+        "command injection via Runtime.exec (CWE-78/OWASP A03), SQL injection (CWE-89/OWASP A03), "
+        "insecure deserialization via ObjectInputStream (CWE-502/OWASP A08), "
+        "path traversal (CWE-22/OWASP A01), XXE (CWE-611/OWASP A05), SSRF (CWE-918/OWASP A10)"
+    ),
+    "actionscript": (
+        "cross-site scripting via ExternalInterface.call (CWE-79/OWASP A03), "
+        "open redirect via navigateToURL (CWE-601), insecure cross-domain policy via Security.allowDomain (CWE-942), "
+        "code injection via eval/loadVariables (CWE-94), SWF injection"
+    ),
 }
-_DEFAULT_GUIDANCE = "command injection, SQL injection, path traversal, insecure deserialization, code execution, authentication bypass"
+_DEFAULT_GUIDANCE = (
+    "command injection (CWE-78/OWASP A03), SQL injection (CWE-89/OWASP A03), "
+    "path traversal (CWE-22/OWASP A01), insecure deserialization (CWE-502/OWASP A08), "
+    "code execution (CWE-94), authentication bypass (CWE-287/OWASP A07), "
+    "SSRF (CWE-918/OWASP A10), broken access control (OWASP A01)"
+)
 
 _DIM_FOCUS: dict[Dimension, str] = {
     Dimension.TRIAGE: (
@@ -63,12 +120,15 @@ Respond with a JSON array (and nothing else):
   {
     "line_hint": <int or null>,
     "bug_class": "<e.g. buffer-overflow, xss, sql-injection>",
+    "cwe_id": "<e.g. CWE-79, CWE-89 — or null if unsure>",
+    "owasp_category": "<e.g. A03:2021-Injection — or null if unsure>",
     "description": "<precise description>",
     "exploit_input": "<concrete input that triggers the bug>"
   }
 ]
 If you find no bugs, return: []
-Be precise. Do not speculate. Only report bugs you can reason about concretely."""
+Be precise. Do not speculate. Only report bugs you can reason about concretely.
+Include CWE and OWASP references where applicable."""
 
 
 def _hunt_system(language: str, dimension: Dimension = Dimension.TRIAGE) -> str:
@@ -93,6 +153,8 @@ class Finding:
     confidence: float = 1.0
     dimension: str = Dimension.TRIAGE.value
     corroboration: int = 1  # how many dimensions flagged this
+    cwe_id: str | None = None
+    owasp_category: str | None = None
 
 
 class LLMError(Exception):
@@ -153,6 +215,8 @@ class HuntAgent:
                 description=item.get("description", ""),
                 exploit_input=item.get("exploit_input", ""),
                 dimension=dimension.value,
+                cwe_id=item.get("cwe_id"),
+                owasp_category=item.get("owasp_category"),
             )
             for item in items
         ]
@@ -161,14 +225,25 @@ class HuntAgent:
 class SynthAgent:
     """Runs the SYNTH dimension across a group of related files."""
 
+    MAX_FILE_CHARS = 3000
+
     def __init__(self, adapter: BaseAdapter) -> None:
         self.adapter = adapter
 
     async def run(self, files: list[RankedFile]) -> list[Finding]:
-        blocks = "\n\n".join(
-            f"=== FILE: {rf.node.path} (surface={rf.surface:.3f}) ===\n{rf.node.content[:3000]}"
-            for rf in files
-        )
+        parts: list[str] = []
+        for rf in files:
+            content = rf.node.content
+            if len(content) > self.MAX_FILE_CHARS:
+                log.warning(
+                    "SynthAgent: truncating %s from %d to %d chars",
+                    rf.node.path, len(content), self.MAX_FILE_CHARS,
+                )
+                content = content[:self.MAX_FILE_CHARS]
+            parts.append(
+                f"=== FILE: {rf.node.path} (surface={rf.surface:.3f}) ===\n{content}"
+            )
+        blocks = "\n\n".join(parts)
         messages = [{"role": "user", "content": blocks}]
         # Use the language of the first file; all files in a subsystem share a language
         lang = files[0].node.language if files else "unknown"
@@ -189,6 +264,8 @@ class SynthAgent:
                 description=item.get("description", ""),
                 exploit_input=item.get("exploit_input", ""),
                 dimension=Dimension.SYNTH.value,
+                cwe_id=item.get("cwe_id"),
+                owasp_category=item.get("owasp_category"),
             )
             for item in items
         ]

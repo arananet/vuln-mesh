@@ -38,8 +38,15 @@ _UNSAFE_BY_LANG: dict[str, re.Pattern] = {
         r'\b(Runtime\.exec|ProcessBuilder|ObjectInputStream|eval'
         r'|prepareStatement|createQuery)\b'
     ),
+    "actionscript": re.compile(
+        r'\b(navigateToURL|ExternalInterface\.call|loadVariables|getURL'
+        r'|Security\.allowDomain|eval|loadMovie)\b'
+    ),
 }
 _UNSAFE_FALLBACK = re.compile(r'\b(eval|exec|system|unsafe)\b')
+
+# Default ranker weights — can be overridden via config
+_DEFAULT_WEIGHTS = {"surface": 0.5, "influence": 0.2, "reachability": 0.3}
 
 
 @dataclass
@@ -60,10 +67,10 @@ def _unsafe_density(node: FileNode) -> float:
 
 
 def _bfs_depth(start: str, edges: list[tuple[str, str]]) -> dict[str, int]:
+    """BFS on directed edges (src→dst) from entry point. Only follows caller→callee direction."""
     adj: dict[str, list[str]] = {}
     for src, dst in edges:
         adj.setdefault(src, []).append(dst)
-        adj.setdefault(dst, []).append(src)
     visited: dict[str, int] = {start: 0}
     q: deque[str] = deque([start])
     while q:
@@ -80,9 +87,19 @@ def _reverse_edge_count(path: str, edges: list[tuple[str, str]]) -> int:
     return sum(1 for _, dst in edges if dst == path)
 
 
-def rank(graph: FileGraph, top_n: int | None = None, min_score: float = 0.0) -> list[RankedFile]:
+def rank(
+    graph: FileGraph,
+    top_n: int | None = None,
+    min_score: float = 0.0,
+    weights: dict[str, float] | None = None,
+) -> list[RankedFile]:
     if not graph.nodes:
         return []
+
+    w = weights or _DEFAULT_WEIGHTS
+    w_surface = w.get("surface", 0.5)
+    w_influence = w.get("influence", 0.2)
+    w_reach = w.get("reachability", 0.3)
 
     entry_points = [n.path for n in graph.nodes if n.is_entry_point]
     depth_map: dict[str, int] = {}
@@ -112,7 +129,7 @@ def rank(graph: FileGraph, top_n: int | None = None, min_score: float = 0.0) -> 
         s = surface_norm[i]
         inf = influence_norm[i]
         r = reach_norm[i]
-        score = round(0.5 * s + 0.2 * inf + 0.3 * r, 4)
+        score = round(w_surface * s + w_influence * inf + w_reach * r, 4)
         rationale = (
             f"surface={s:.3f} influence={inf:.3f} reachability={r:.3f} "
             f"(unsafe_density={unsafe_raw:.4f} rev_edges={int(rev_raw)} entry_depth={depth_raw})"

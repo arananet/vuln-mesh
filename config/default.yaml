@@ -5,6 +5,10 @@ target:
 ranker:
   top_n: 200                 # null = rank all files
   min_score: 0.05            # low threshold — unsafe-density patterns vary by language
+  weights:
+    surface: 0.5
+    influence: 0.2
+    reachability: 0.3
 
 agents:
   concurrency: 32

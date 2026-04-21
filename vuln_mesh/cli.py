@@ -14,7 +14,7 @@ from vuln_mesh.dashboard.state import EventType, PipelineEvent, PipelineTracker
 from vuln_mesh.db.repository import ScanRepository
 from vuln_mesh.db.session import get_session_factory
 from vuln_mesh.ingestion.loader import ingest
-from vuln_mesh.oracle.runner import OracleStatus, run_oracle
+from vuln_mesh.oracle.runner import OracleStatus, run_oracle_async
 from vuln_mesh.ranker.scorer import rank
 from vuln_mesh.report.markdown import finding_hash, render_markdown
 
@@ -58,6 +58,9 @@ async def _persist_results(src: str, oracle_results: list, stats: dict) -> None:
                 verifier_rationale=result.finding.verifier_rationale,
                 oracle_output=result.output,
                 finding_hash=finding_hash(f.file_path, f.exploit_input),
+                oracle_status=result.status.value,
+                cwe_id=getattr(f, 'cwe_id', None),
+                owasp_category=getattr(f, 'owasp_category', None),
             )
         await repo.complete_scan(
             scan.id,
@@ -79,6 +82,7 @@ async def _run_scan(
     concurrency = cfg["agents"].get("concurrency", 32)
     hunt_profile = cfg["agents"].get("model_profile", "triage")
     verify_profile = cfg["agents"].get("verifier_profile", hunt_profile)
+    ranker_weights = cfg["ranker"].get("weights")
 
     async def _emit(t: EventType, data: dict) -> None:
         if tracker:
@@ -91,7 +95,7 @@ async def _run_scan(
     log.info("Found %d source files", len(graph.nodes))
     await _emit(EventType.INGESTION_COMPLETE, {"count": len(graph.nodes)})
 
-    ranked = rank(graph, top_n=top_n, min_score=min_score)
+    ranked = rank(graph, top_n=top_n, min_score=min_score, weights=ranker_weights)
     log.info("Ranked %d files for analysis", len(ranked))
     await _emit(EventType.RANKING_COMPLETE, {"count": len(ranked)})
 
@@ -99,13 +103,14 @@ async def _run_scan(
     verifier_adapter = _make_adapter(cfg, verify_profile)
 
     log.info("Running agent mesh (concurrency=%d)", concurrency)
-    verified = await run_mesh(ranked, hunt_adapter, verifier_adapter, concurrency, tracker)
+    verified = await run_mesh(ranked, hunt_adapter, verifier_adapter, concurrency, tracker, graph=graph)
     log.info("Agent mesh: %d verified findings", len(verified))
 
     log.info("Running oracle verification")
     oracle_results = []
+    all_oracle_results = []  # includes compile errors and skipped for reporting
     for vf in verified:
-        result = run_oracle(vf)
+        result = await run_oracle_async(vf)
         status_str = result.status.value
         await _emit(EventType.ORACLE_RESULT, {
             "path": vf.finding.file_path,
@@ -113,8 +118,16 @@ async def _run_scan(
             "status": status_str,
             "output_excerpt": result.output[:512],
         })
+        all_oracle_results.append(result)
         if result.status == OracleStatus.CRASHED:
             log.info("CONFIRMED: %s in %s", vf.finding.bug_class, vf.finding.file_path)
+            oracle_results.append(result)
+        elif result.status == OracleStatus.SKIPPED:
+            log.info("Oracle skipped (non-compilable): %s in %s — including as verified-only",
+                     vf.finding.bug_class, vf.finding.file_path)
+            oracle_results.append(result)
+        elif result.status == OracleStatus.COMPILE_ERROR:
+            log.info("COMPILE_ERROR: %s in %s — including in report", vf.finding.bug_class, vf.finding.file_path)
             oracle_results.append(result)
         else:
             log.info("Oracle filtered out %s (%s)", vf.finding.bug_class, result.status)

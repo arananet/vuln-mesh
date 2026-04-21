@@ -5,7 +5,7 @@
 #
 # Required environment variable on this service:
 #   BACKEND_URL — public Railway URL of the backend service
-#               e.g. https://vuln-mesh-backend.up.railway.app
+#               e.g. https://<your-backend>.up.railway.app
 # ─────────────────────────────────────────────────────────────────────────────
 
 [build]

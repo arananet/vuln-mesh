@@ -6,12 +6,17 @@ from .base import AdapterConfig, BaseAdapter
 
 
 class AnthropicAdapter(BaseAdapter):
+    capabilities = {
+        "supports_caching": True,
+        "supports_json_mode": False,
+    }
+
     def __init__(self, config: AdapterConfig) -> None:
         super().__init__(config)
         # api_key=None → SDK reads ANTHROPIC_API_KEY from env
         self._client = AsyncAnthropic(api_key=config.api_key or None)
 
-    async def complete(
+    async def _do_complete(
         self,
         messages: list[dict],
         system: str,

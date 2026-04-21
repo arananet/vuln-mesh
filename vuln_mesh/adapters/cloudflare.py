@@ -10,30 +10,44 @@ _BASE = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{mode
 
 
 class CloudflareAdapter(BaseAdapter):
+    capabilities = {
+        "supports_caching": False,
+        "supports_json_mode": False,
+    }
+
     def __init__(self, config: AdapterConfig) -> None:
         super().__init__(config)
-        self._account_id = os.environ.get("CF_ACCOUNT_ID", "")
-        self._token = config.api_key or os.environ.get("CF_API_TOKEN", "")
+        # Defer env-var validation to complete() so tests that don't use
+        # Cloudflare can still construct the adapter without crashing.
+        self._account_id: str | None = None
+        self._token: str | None = None
+
+    def _ensure_credentials(self) -> None:
+        if self._account_id is None:
+            self._account_id = os.environ.get("CF_ACCOUNT_ID", "")
+        if self._token is None:
+            self._token = self.config.api_key or os.environ.get("CF_API_TOKEN", "")
         if not self._account_id:
             raise RuntimeError(
                 "CF_ACCOUNT_ID environment variable is not set. "
-                "Add it to your Railway service variables."
+                "Set it in your environment variables."
             )
         if not self._token:
             raise RuntimeError(
                 "CF_API_TOKEN environment variable is not set. "
-                "Add it to your Railway service variables."
+                "Set it in your environment variables."
             )
 
     def _url(self) -> str:
         return _BASE.format(account_id=self._account_id, model=self.config.model)
 
-    async def complete(
+    async def _do_complete(
         self,
         messages: list[dict],
         system: str,
         max_tokens: int | None = None,
     ) -> str:
+        self._ensure_credentials()
         full_messages = [{"role": "system", "content": system}] + messages
         payload: dict = {"messages": full_messages}
         if max_tokens:

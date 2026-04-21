@@ -27,20 +27,33 @@ def test_build_adapter_returns_cloudflare(monkeypatch):
     assert isinstance(adapter, CloudflareAdapter)
 
 
-def test_init_raises_if_account_id_missing(monkeypatch):
+def test_init_succeeds_without_env_vars(monkeypatch):
+    """After lazy-init refactor, __init__ no longer raises on missing env vars."""
+    monkeypatch.delenv("CF_ACCOUNT_ID", raising=False)
+    monkeypatch.delenv("CF_API_TOKEN", raising=False)
+    cfg = AdapterConfig(provider="cloudflare", model="@cf/meta/llama-3.1-8b-instruct")
+    adapter = CloudflareAdapter(cfg)
+    assert adapter._account_id is None
+
+
+@pytest.mark.asyncio
+async def test_complete_raises_if_account_id_missing(monkeypatch):
     monkeypatch.delenv("CF_ACCOUNT_ID", raising=False)
     monkeypatch.setenv("CF_API_TOKEN", "tok")
     cfg = AdapterConfig(provider="cloudflare", model="@cf/meta/llama-3.1-8b-instruct")
+    adapter = CloudflareAdapter(cfg)
     with pytest.raises(RuntimeError, match="CF_ACCOUNT_ID"):
-        CloudflareAdapter(cfg)
+        await adapter.complete([{"role": "user", "content": "hi"}], "sys")
 
 
-def test_init_raises_if_token_missing(monkeypatch):
+@pytest.mark.asyncio
+async def test_complete_raises_if_token_missing(monkeypatch):
     monkeypatch.setenv("CF_ACCOUNT_ID", "acct")
     monkeypatch.delenv("CF_API_TOKEN", raising=False)
     cfg = AdapterConfig(provider="cloudflare", model="@cf/meta/llama-3.1-8b-instruct", api_key="")
+    adapter = CloudflareAdapter(cfg)
     with pytest.raises(RuntimeError, match="CF_API_TOKEN"):
-        CloudflareAdapter(cfg)
+        await adapter.complete([{"role": "user", "content": "hi"}], "sys")
 
 
 @pytest.mark.asyncio

@@ -6,11 +6,16 @@ from .base import AdapterConfig, BaseAdapter
 
 
 class OllamaAdapter(BaseAdapter):
+    capabilities = {
+        "supports_caching": False,
+        "supports_json_mode": True,
+    }
+
     def _url(self) -> str:
         base = self.config.base_url.rstrip("/")
         return f"{base}/api/chat"
 
-    async def complete(
+    async def _do_complete(
         self,
         messages: list[dict],
         system: str,

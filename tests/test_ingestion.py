@@ -51,8 +51,13 @@ def test_parse_includes():
 
 
 def test_detect_entry_point_positive():
-    assert _detect_entry_point("int main(int argc, char *argv[]) { }") is True
+    assert _detect_entry_point("int main(int argc, char *argv[]) { }", "c") is True
 
 
 def test_detect_entry_point_negative():
-    assert _detect_entry_point("void helper(void) { }") is False
+    assert _detect_entry_point("void helper(void) { }", "c") is False
+
+
+def test_detect_entry_point_js():
+    assert _detect_entry_point("app.listen(3000)", "javascript") is True
+    assert _detect_entry_point("const x = 1;", "javascript") is False

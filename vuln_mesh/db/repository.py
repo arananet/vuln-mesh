@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Finding, ScanRun
+from .models import DiscardedFinding, Finding, ScanRun
 
 
 class ScanRepository:
@@ -53,6 +53,9 @@ class ScanRepository:
         verifier_rationale: str,
         oracle_output: str,
         finding_hash: str,
+        oracle_status: str = "crashed",
+        cwe_id: str | None = None,
+        owasp_category: str | None = None,
     ) -> Finding:
         f = Finding(
             scan_run_id=scan_id,
@@ -63,12 +66,41 @@ class ScanRepository:
             exploit_input=exploit_input,
             verifier_rationale=verifier_rationale,
             oracle_output=oracle_output,
+            oracle_status=oracle_status,
+            cwe_id=cwe_id,
+            owasp_category=owasp_category,
             finding_hash=finding_hash,
             created_at=datetime.now(timezone.utc),
         )
         self.session.add(f)
         await self.session.commit()
         return f
+
+    async def add_discarded_finding(
+        self,
+        scan_id: str,
+        file_path: str,
+        line_hint: int | None,
+        bug_class: str,
+        description: str,
+        dimension: str,
+        rejection_reason: str,
+        rejection_detail: str = "",
+    ) -> DiscardedFinding:
+        df = DiscardedFinding(
+            scan_run_id=scan_id,
+            file_path=file_path,
+            line_hint=line_hint,
+            bug_class=bug_class,
+            description=description,
+            dimension=dimension,
+            rejection_reason=rejection_reason,
+            rejection_detail=rejection_detail,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.session.add(df)
+        await self.session.commit()
+        return df
 
     async def list_scans(self, limit: int = 20, offset: int = 0) -> list[ScanRun]:
         result = await self.session.execute(
@@ -82,5 +114,11 @@ class ScanRepository:
     async def get_findings(self, scan_id: str) -> list[Finding]:
         result = await self.session.execute(
             select(Finding).where(Finding.scan_run_id == scan_id)
+        )
+        return list(result.scalars().all())
+
+    async def get_discarded_findings(self, scan_id: str) -> list[DiscardedFinding]:
+        result = await self.session.execute(
+            select(DiscardedFinding).where(DiscardedFinding.scan_run_id == scan_id)
         )
         return list(result.scalars().all())

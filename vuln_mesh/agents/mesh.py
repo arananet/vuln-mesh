@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vuln_mesh.adapters.base import BaseAdapter
 from vuln_mesh.dashboard.state import EventType, PipelineEvent, PipelineTracker
+from vuln_mesh.ingestion.loader import FileGraph
 from vuln_mesh.ranker.scorer import RankedFile
 
 from .hunt import Dimension, Finding, HuntAgent, LLMError, SynthAgent
@@ -44,16 +45,47 @@ def _agent_id(dimension: Dimension, path: str) -> str:
 
 
 def _corroborate(findings_by_dim: dict[str, list[Finding]]) -> list[Finding]:
-    """Merge findings across dimensions. Same bug_class+line → increment corroboration."""
+    """Merge findings across dimensions. Same bug_class+line+file → increment corroboration."""
     merged: dict[str, Finding] = {}
     for dim_findings in findings_by_dim.values():
         for f in dim_findings:
-            key = f"{f.bug_class}:{f.line_hint}"
+            # Use file_path and require non-null lines to corroborate;
+            # line_hint=None findings only corroborate by exact (bug_class, file, None)
+            key = f"{f.bug_class}:{f.line_hint or 'none'}:{f.file_path}"
             if key in merged:
                 merged[key].corroboration += 1
             else:
                 merged[key] = f
     return list(merged.values())
+
+
+def _build_neighborhood(path: str, graph: FileGraph | None, hops: int = 2) -> str:
+    """Return a text summary of files within `hops` edges of `path` in the file graph."""
+    if graph is None or not graph.edges:
+        return ""
+    adj: dict[str, set[str]] = defaultdict(set)
+    for src, dst in graph.edges:
+        adj[src].add(dst)
+        adj[dst].add(src)
+
+    visited: set[str] = {path}
+    frontier: set[str] = {path}
+    for _ in range(hops):
+        next_frontier: set[str] = set()
+        for node in frontier:
+            for nb in adj.get(node, set()):
+                if nb not in visited:
+                    visited.add(nb)
+                    next_frontier.add(nb)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    neighbors = visited - {path}
+    if not neighbors:
+        return ""
+    lines = [f"- {nb}" for nb in sorted(neighbors)]
+    return "\n".join(lines)
 
 
 async def run_mesh(
@@ -62,8 +94,10 @@ async def run_mesh(
     verifier_adapter: BaseAdapter,
     concurrency: int = 32,
     tracker: PipelineTracker | None = None,
+    graph: FileGraph | None = None,
 ) -> list[VerifiedFinding]:
-    sem = asyncio.Semaphore(concurrency)
+    file_sem = asyncio.Semaphore(concurrency)
+    synth_sem = asyncio.Semaphore(max(concurrency // 4, 4))
     hunter = HuntAgent(hunt_adapter)
     verifier = VerifierAgent(verifier_adapter)
     synth = SynthAgent(verifier_adapter)  # SYNTH uses the smarter model
@@ -85,7 +119,8 @@ async def run_mesh(
             "agent_id": agent_id,
         })
         try:
-            findings = await hunter.run(ranked, dimension=dim)
+            neighborhood = _build_neighborhood(ranked.node.path, graph)
+            findings = await hunter.run(ranked, neighborhood=neighborhood, dimension=dim)
         except LLMError as exc:
             await _emit(EventType.ERROR, {"message": f"[{dim.value}] {ranked.node.path}: {exc}"})
             await _emit(EventType.DISCARDED, {
@@ -102,7 +137,7 @@ async def run_mesh(
 
     # ── Per-file multi-dimensional processing ───────────────────────────────
     async def _process_file(ranked: RankedFile) -> list[VerifiedFinding]:
-        async with sem:
+        async with file_sem:
             dims = _select_dimensions(ranked)
             dim_tasks = [asyncio.create_task(_run_dimension(ranked, d)) for d in dims]
             dim_results = await asyncio.gather(*dim_tasks)
@@ -147,7 +182,7 @@ async def run_mesh(
 
     # ── Subsystem synthesis ─────────────────────────────────────────────────
     async def _process_subsystem(group: list[RankedFile]) -> list[VerifiedFinding]:
-        async with sem:
+        async with synth_sem:
             label = Path(group[0].node.path).parent.name
             synth_path = f"[subsystem:{label}]"
             agent_id = f"synth:{synth_path}"
@@ -186,8 +221,11 @@ async def run_mesh(
                     "dimension": Dimension.SYNTH.value,
                     "corroboration": 1,
                 })
-                # Use first file's content as context for verifier
-                vf = await verifier.run(finding, group[0].node.content)
+                # Concatenate ALL group files so verifier can reason about cross-file flows
+                combined_content = "\n\n".join(
+                    f"=== {rf.node.path} ===\n{rf.node.content}" for rf in group
+                )
+                vf = await verifier.run(finding, combined_content)
                 if vf.verified:
                     await _emit(EventType.VERIFIED, {
                         "path": synth_path,

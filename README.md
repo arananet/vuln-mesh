@@ -2,21 +2,23 @@
 
 > **Authorized use only.** Only analyze source code you own or have explicit written permission to test. Unauthorized scanning may be illegal in your jurisdiction.
 
-A model-agnostic vulnerability discovery pipeline using layered LLM agents to find and verify security bugs in C/C++ source code. Inspired by [Anthropic's Project Glasswing](https://www.anthropic.com/glasswing).
+A model-agnostic vulnerability discovery pipeline using layered LLM agents to find and verify security bugs in **C, C++, Python, JavaScript, TypeScript, Node.js, and ActionScript** source code. Vulnerability classification follows **OWASP Top 10** and **CWE** taxonomies. Inspired by [Anthropic's Project Glasswing](https://www.anthropic.com/glasswing).
 
 ## Architecture
 
 ```mermaid
 graph TD
-    A[Target Source\nlocal path] --> B[Ingestion Layer\nvuln_mesh/ingestion/]
+    A[Target Source\nlocal path / git URL] --> B[Ingestion Layer\nvuln_mesh/ingestion/]
     B --> C[Attack Surface Ranker\nvuln_mesh/ranker/]
     C --> D[Agent Mesh\nvuln_mesh/agents/]
-    D --> D1[Hunt Agent\nhunt.py]
+    D --> D1[Hunt Agents\nTRIAGE · SURFACE · INFLUENCE\nREACHABILITY · SYNTH]
     D1 --> D2[Adversarial Verifier\nverifier.py]
     D2 --> E[Oracle Layer\nvuln_mesh/oracle/]
-    E --> E1[ASan Crash Oracle\ncrash.py]
+    E --> E1[ASan Crash Oracle\nC/C++ only]
+    E --> E2[Verified-Only\nPython · JS · TS · AS]
     E1 --> F[Report Layer\nvuln_mesh/report/]
-    F --> G[Markdown Report]
+    E2 --> F
+    F --> G[Markdown Report\nCWE · OWASP · CVSS]
     D --> H[Dashboard\nSSE + FastAPI]
     H --> I[(PostgreSQL\nScan history)]
 ```
@@ -25,19 +27,28 @@ graph TD
 
 | Stage | Module | What it does |
 |---|---|---|
-| **Ingestion** | `vuln_mesh/ingestion/` | Walks local path, detects C/C++ files, builds dependency graph |
-| **Ranker** | `vuln_mesh/ranker/` | Scores files by unsafe call density + size + entry-point depth |
-| **Agent Mesh** | `vuln_mesh/agents/` | Hunt agent finds bugs; adversarial verifier tries to disprove them |
-| **Oracle** | `vuln_mesh/oracle/` | Compiles with ASan, runs exploit input, confirms real crashes |
-| **Report** | `vuln_mesh/report/` | Writes Markdown report with CVSS estimates and finding hashes |
-| **Adapters** | `vuln_mesh/adapters/` | Unified `async complete()` interface — Anthropic, Ollama, extensible |
-| **Dashboard** | `vuln_mesh/dashboard/` | Real-time web UI over SSE; scan history stored in PostgreSQL |
+| **Ingestion** | `vuln_mesh/ingestion/` | Walks local path, detects source files (C/C++/Python/JS/TS/ActionScript), builds dependency graph with relative include resolution |
+| **Ranker** | `vuln_mesh/ranker/` | Scores files by unsafe call density + size + entry-point depth; configurable weights; directed BFS for reachability |
+| **Agent Mesh** | `vuln_mesh/agents/` | 5 hunt dimensions (TRIAGE/SURFACE/INFLUENCE/REACHABILITY/SYNTH) find bugs with CWE/OWASP classification; adversarial verifier disproves false positives |
+| **Oracle** | `vuln_mesh/oracle/` | Compiles C/C++ with ASan and runs exploit input; non-compilable languages get VERIFIED or SKIPPED status |
+| **Report** | `vuln_mesh/report/` | Markdown report with CWE IDs, OWASP categories, CVSS estimates, and categorized sections (CRASHED/COMPILE_ERROR/VERIFIED) |
+| **Adapters** | `vuln_mesh/adapters/` | Unified `async complete()` with exponential backoff retry; Anthropic, Cloudflare, Ollama; capability declarations |
+| **Dashboard** | `vuln_mesh/dashboard/` | Real-time web UI over SSE; scan history and discarded findings stored in PostgreSQL |
+
+## Supported Languages
+
+| Language | File Extensions | Oracle | Vulnerability Patterns |
+|---|---|---|---|
+| C/C++ | `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp` | ASan crash | Buffer overflow (CWE-120), use-after-free (CWE-416), format string (CWE-134), integer overflow (CWE-190) |
+| Python | `.py` | Verified-only | Command injection (CWE-78), SQL injection (CWE-89), path traversal (CWE-22), insecure deserialization (CWE-502) |
+| JavaScript/TypeScript | `.js`, `.ts`, `.jsx`, `.tsx` | Verified-only | XSS (CWE-79), prototype pollution (CWE-1321), SSRF (CWE-918), command injection (CWE-78) |
+| ActionScript | `.as` | Verified-only | `navigateToURL`, `ExternalInterface.call`, `Security.allowDomain`, `eval` |
 
 ## Requirements
 
 - Python 3.11+
-- `gcc` or `clang` with AddressSanitizer support (for oracle verification)
-- At least one model backend (Anthropic API key or a running Ollama instance)
+- `gcc` or `clang` with AddressSanitizer support (for C/C++ oracle verification)
+- At least one model backend (Anthropic API key, Cloudflare Workers AI, or a running Ollama instance)
 
 ## Installation
 
@@ -66,6 +77,10 @@ Edit `config/default.yaml`:
 ranker:
   top_n: 200
   min_score: 0.4
+  weights:
+    surface: 0.5
+    influence: 0.2
+    reachability: 0.3
 
 agents:
   concurrency: 32
@@ -145,7 +160,7 @@ Railway project
 
 | Variable | Example | Notes |
 |---|---|---|
-| `BACKEND_URL` | `https://vuln-mesh-backend.up.railway.app` | Backend's public Railway URL |
+| `BACKEND_URL` | `https://<your-backend>.up.railway.app` | Backend's public Railway URL (set to your own) |
 
 4. Set `CORS_ORIGINS` on the backend to the frontend's public URL
 5. Deploy both → visit the frontend URL → login screen appears
@@ -164,25 +179,27 @@ Oracle tests require a C compiler with ASan support and are skipped automaticall
 
 All implemented features have specs in `.openspec/specs/`. Each spec has acceptance criteria, test plan, and implementation notes.
 
-## v0.1 Scope
+## Scope
 
 | Feature | Status |
 |---|---|
-| Local path ingestion, C/C++ | ✅ |
-| Heuristic ranker (unsafe calls + size + depth) | ✅ |
-| Hunt agent + adversarial verifier | ✅ |
-| ASan crash oracle | ✅ |
-| Markdown report with CVSS estimates | ✅ |
-| Anthropic + Ollama adapters | ✅ |
+| Multi-language ingestion (C/C++/Python/JS/TS/ActionScript) | ✅ |
+| Relative include resolution | ✅ |
+| Directed BFS reachability with configurable weights | ✅ |
+| 5-dimension hunt agents (TRIAGE/SURFACE/INFLUENCE/REACHABILITY/SYNTH) | ✅ |
+| OWASP/CWE vulnerability classification | ✅ |
+| Adversarial verifier | ✅ |
+| ASan crash oracle (C/C++) + verified-only (other languages) | ✅ |
+| Markdown report with CWE, OWASP, CVSS estimates | ✅ |
+| Adapter retry with exponential backoff | ✅ |
+| Anthropic + Ollama + Cloudflare adapters | ✅ |
 | Real-time web dashboard (SSE) | ✅ |
-| PostgreSQL scan history | ✅ |
+| PostgreSQL scan history + discarded finding persistence | ✅ |
 | Username + password authentication | ✅ |
 | Railway deployment (single + two-service) | ✅ |
-| Mobile-responsive dashboard | ✅ |
-| SARIF output | v0.2 |
-| UBSan oracle | v0.2 |
-| Variant hunter | v0.2 |
-| Git URL / tarball ingestion | v0.2 |
+| SARIF output | planned |
+| UBSan oracle | planned |
+| Variant hunter | planned |
 
 ---
 

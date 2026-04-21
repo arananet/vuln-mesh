@@ -1,0 +1,72 @@
+title: "v0.2 Architectural Fixes & Multi-Language Support"
+slug: "v02-architectural-fixes"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-04-21"
+updated_at: "2026-04-21"
+
+description: |
+  Addresses all architectural feedback from code review and expands the pipeline
+  from C-only to multi-language (Python, JavaScript/Node, ActionScript). Fixes
+  include: ingestion include-resolution by relative path, directed BFS in ranker,
+  configurable ranker weights, corroboration key collision fix, dual semaphores
+  in mesh, SYNTH verifier context fix, adapter capabilities/retry, oracle async
+  wrapping, compile-error surfacing in reports, dashboard auth hardening,
+  discarded-finding persistence, neighborhood population for hunt agents,
+  SynthAgent truncation logging, Cloudflare lazy env check, OWASP/CVE-based
+  vulnerability taxonomy, and Railway URL removal.
+
+acceptance_criteria:
+  - "Given a file with #include \"../utils/helper.h\", when ingested, then the edge resolves relative to the including file's directory first, falling back to basename"
+  - "Given an include graph, when BFS computes reachability, then it uses directed edges (caller→callee) not undirected"
+  - "Given config/default.yaml, when ranker weights are specified, then scorer.py uses those weights instead of hardcoded values"
+  - "Given two findings with line_hint=None from different files, when corroborated, then they do NOT collide into one bucket"
+  - "Given run_mesh with concurrency=32, then file-pass and subsystem-pass use separate semaphores"
+  - "Given a SYNTH finding, when the verifier runs, then it receives concatenated content from ALL group files, not just group[0]"
+  - "Given an adapter, when complete() is called, then transient errors (429, 5xx) are retried with exponential backoff up to 3 attempts"
+  - "Given CloudflareAdapter with missing env vars, then __init__ succeeds and the error is raised lazily in complete()"
+  - "Given a BaseAdapter subclass, then it exposes a capabilities dict indicating supports_caching and supports_json_mode"
+  - "Given a VerifiedFinding where oracle compile fails, then the report shows COMPILE_ERROR prominently and the finding still ships"
+  - "Given run_oracle called inside an async pipeline, then it runs via asyncio.to_thread to avoid blocking the event loop"
+  - "Given Python/JavaScript/TypeScript/ActionScript source files, when ingested, then they are discovered, parsed for imports, and ranked"
+  - "Given a hunt agent prompt, then vulnerability classes reference OWASP Top 10 and CWE IDs alongside freeform LLM detection"
+  - "Given a SynthAgent.run call where files are truncated, then a warning is logged with file path and original vs truncated size"
+  - "Given mesh.py dispatching hunt agents, then the neighborhood parameter is populated from the file graph's 2-hop edges"
+  - "Given README.md or any tracked file, then no Railway public URLs (*.up.railway.app) appear"
+  - "Given a discarded/rejected finding, then it is persisted to a finding_events or discarded_findings record for debugging"
+
+test_plan:
+  - "Unit test: ingest() resolves #include relative to including file's directory"
+  - "Unit test: _bfs_depth uses directed edges only (leaf header not reachable via unrelated includer)"
+  - "Unit test: rank() uses weights from config dict when provided"
+  - "Unit test: _corroborate does not merge findings with line_hint=None from different files"
+  - "Unit test: adapter retry logic retries on 429/500 and succeeds on second attempt"
+  - "Unit test: CloudflareAdapter.__init__ succeeds without env vars; complete() raises"
+  - "Unit test: BaseAdapter.capabilities returns expected dict"
+  - "Unit test: render_markdown surfaces COMPILE_ERROR findings prominently"
+  - "Unit test: run_oracle_async wraps run_oracle in asyncio.to_thread"
+  - "Unit test: ingest() discovers .py, .js, .ts files and parses their imports"
+  - "Unit test: hunt agent system prompt includes OWASP/CWE references"
+  - "Unit test: SynthAgent logs warning when truncating files"
+  - "Unit test: run_mesh populates neighborhood from graph edges"
+  - "Integration test: full pipeline with Python fixture files produces ranked output"
+
+out_of_scope:
+  - "Iterative refinement loop (feeding verifier/oracle results back into second hunt pass)"
+  - "Variant hunting (separate spec)"
+  - "JWT/signed token auth (noted as improvement, not blocking v0.2)"
+  - "Git history rewriting for Railway URLs (destructive; only current files cleaned)"
+
+implementation_skill: null
+
+technical_notes: |
+  This is a batch fix spec covering the architectural review feedback.
+  Each acceptance criterion maps to a specific code change across the codebase.
+  Multi-language was partially implemented (loader.py already has _LANG_MAP for many languages)
+  but entry-point detection and import parsing need enhancement for JS/Python.
+  ActionScript uses .as extension and import patterns similar to Java.
+
+linked_issues: []
+linked_prs: []
