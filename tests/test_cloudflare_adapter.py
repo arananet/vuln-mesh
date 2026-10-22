@@ -60,7 +60,7 @@ async def test_complete_raises_if_token_missing(monkeypatch):
 @respx.mock
 async def test_complete_returns_response_text():
     adapter = _make_adapter()
-    url = "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/meta/llama-3.1-8b-instruct"
+    url = "https://gateway.ai.cloudflare.com/v1/acct/arananet-ai-gateway/workers-ai/@cf/meta/llama-3.1-8b-instruct"
     respx.post(url).mock(return_value=httpx.Response(
         200, json={"success": True, "result": {"response": '["finding"]'}, "errors": []},
     ))
@@ -72,7 +72,7 @@ async def test_complete_returns_response_text():
 @respx.mock
 async def test_complete_raises_on_api_error():
     adapter = _make_adapter()
-    url = "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/meta/llama-3.1-8b-instruct"
+    url = "https://gateway.ai.cloudflare.com/v1/acct/arananet-ai-gateway/workers-ai/@cf/meta/llama-3.1-8b-instruct"
     respx.post(url).mock(return_value=httpx.Response(
         200, json={"success": False, "result": None, "errors": [{"message": "bad token"}]},
     ))
@@ -84,7 +84,7 @@ async def test_complete_raises_on_api_error():
 @respx.mock
 async def test_complete_raises_on_404_with_helpful_message():
     adapter = _make_adapter()
-    url = "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/meta/llama-3.1-8b-instruct"
+    url = "https://gateway.ai.cloudflare.com/v1/acct/arananet-ai-gateway/workers-ai/@cf/meta/llama-3.1-8b-instruct"
     respx.post(url).mock(return_value=httpx.Response(404))
     with pytest.raises(RuntimeError, match="CF_ACCOUNT_ID"):
         await adapter.complete([{"role": "user", "content": "hi"}], "sys")
@@ -92,9 +92,35 @@ async def test_complete_raises_on_404_with_helpful_message():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_complete_goes_through_gateway_with_app_metadata():
+    """Calls must hit the shared AI Gateway and carry the app metadata."""
+    import json as _json
+
+    adapter = _make_adapter()
+    url = "https://gateway.ai.cloudflare.com/v1/acct/arananet-ai-gateway/workers-ai/@cf/meta/llama-3.1-8b-instruct"
+    route = respx.post(url).mock(return_value=httpx.Response(
+        200, json={"success": True, "result": {"response": "ok"}, "errors": []},
+    ))
+    result = await adapter.complete([{"role": "user", "content": "hi"}], "sys")
+    assert result == "ok"
+    request = route.calls.last.request
+    metadata = _json.loads(request.headers["cf-aig-metadata"])
+    assert metadata["app"] == "vuln-mesh"
+    assert request.headers["authorization"] == "Bearer tok"
+
+
+@pytest.mark.asyncio
+async def test_gateway_name_is_overridable(monkeypatch):
+    monkeypatch.setenv("CF_AI_GATEWAY", "otro-gateway")
+    adapter = _make_adapter()
+    assert "/v1/acct/otro-gateway/workers-ai/" in adapter._url()
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_complete_raises_on_401():
     adapter = _make_adapter()
-    url = "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/meta/llama-3.1-8b-instruct"
+    url = "https://gateway.ai.cloudflare.com/v1/acct/arananet-ai-gateway/workers-ai/@cf/meta/llama-3.1-8b-instruct"
     respx.post(url).mock(return_value=httpx.Response(401))
     with pytest.raises(httpx.HTTPStatusError):
         await adapter.complete([{"role": "user", "content": "hi"}], "sys")

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import json
 import os
 
 import httpx
 
 from .base import AdapterConfig, BaseAdapter
 
-_BASE = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+# All inference goes through the shared AI Gateway (arananet-ai-gateway),
+# never straight to the Workers AI REST API. The gateway's workers-ai
+# endpoint returns the same native contract (success / result.response /
+# errors) as the direct API, so only the URL and one header change.
+_BASE = (
+    "https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway}"
+    "/workers-ai/{model}"
+)
+_DEFAULT_GATEWAY = "arananet-ai-gateway"
 
 
 class CloudflareAdapter(BaseAdapter):
@@ -38,8 +47,22 @@ class CloudflareAdapter(BaseAdapter):
                 "Set it in your environment variables."
             )
 
+    def _gateway(self) -> str:
+        return os.environ.get("CF_AI_GATEWAY", "") or _DEFAULT_GATEWAY
+
     def _url(self) -> str:
-        return _BASE.format(account_id=self._account_id, model=self.config.model)
+        return _BASE.format(
+            account_id=self._account_id,
+            gateway=self._gateway(),
+            model=self.config.model,
+        )
+
+    def _metadata_header(self) -> str:
+        # Per-app attribution in the gateway logs, same convention as the
+        # other apps on the shared gateway.
+        return json.dumps(
+            {"app": "vuln-mesh", "env": os.environ.get("CF_AI_ENV", "") or "prod"}
+        )
 
     async def _do_complete(
         self,
@@ -52,12 +75,16 @@ class CloudflareAdapter(BaseAdapter):
         payload: dict = {"messages": full_messages}
         if max_tokens:
             payload["max_tokens"] = max_tokens
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "cf-aig-metadata": self._metadata_header(),
+        }
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(self._url(), headers=headers, json=payload)
             if resp.status_code == 404:
                 raise RuntimeError(
-                    f"Cloudflare AI 404 — check CF_ACCOUNT_ID and model name '{self.config.model}'. "
+                    f"Cloudflare AI Gateway 404: check CF_ACCOUNT_ID, the gateway "
+                    f"'{self._gateway()}' and model name '{self.config.model}'. "
                     f"URL: {self._url()}"
                 )
             resp.raise_for_status()
